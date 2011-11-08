@@ -22,18 +22,18 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-
 import org.jboss.as.clustering.subsystem.AbstractExtensionTest;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
+
+import java.util.List;
+
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * @author Paul Ferraro
@@ -45,7 +45,7 @@ public class InfinispanExtensionTest extends AbstractExtensionTest {
     }
 
     private InfinispanExtensionTest(InfinispanExtension extension) {
-        super(extension, extension, "subsystem-infinispan.xml", Namespace.CURRENT.getUri());
+        super(InfinispanExtension.infinispanSubsystemParser_1_1, InfinispanExtension.infinispanSubsystemParser_1_1, "subsystem-infinispan.xml", Namespace.CURRENT.getUri());
     }
     
     @Override
