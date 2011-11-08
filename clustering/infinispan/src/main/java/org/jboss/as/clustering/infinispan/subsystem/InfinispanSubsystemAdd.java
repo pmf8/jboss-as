@@ -44,6 +44,8 @@ import static org.jboss.as.clustering.infinispan.InfinispanLogger.ROOT_LOGGER;
  */
 public class InfinispanSubsystemAdd extends AbstractAddStepHandler implements DescriptionProvider {
 
+    static final InfinispanSubsystemAdd INSTANCE = new InfinispanSubsystemAdd();
+
     static ModelNode createOperation(ModelNode address, ModelNode existing) {
         ModelNode operation = Util.getEmptyOperation(ModelDescriptionConstants.ADD, address);
         populate(existing, operation);

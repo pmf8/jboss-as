@@ -11,11 +11,9 @@ import javax.xml.stream.XMLStreamException;
 import java.util.List;
 
 /**
- * Parser for Infinispan subsystem.
  *
- * User: rachmato@redhat.com
  */
-public class InfinispanSubsystemParser implements XMLElementReader<List<ModelNode>>, XMLElementWriter<SubsystemMarshallingContext> {
+public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<ModelNode>>, XMLElementWriter<SubsystemMarshallingContext> {
 
     /**
      * (@inheritDoc)
@@ -30,5 +28,6 @@ public class InfinispanSubsystemParser implements XMLElementReader<List<ModelNod
     public void readElement(final XMLExtendedStreamReader reader, final List<ModelNode> operation) throws XMLStreamException {
 
     }
+
 
 }

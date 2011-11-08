@@ -38,6 +38,8 @@ import org.jboss.dmr.Property;
  */
 public class InfinispanSubsystemDescribe implements OperationStepHandler, DescriptionProvider {
 
+    static final InfinispanSubsystemDescribe INSTANCE = new InfinispanSubsystemDescribe();
+
     /**
      * {@inheritDoc}
      *

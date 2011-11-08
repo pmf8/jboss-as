@@ -45,7 +45,7 @@ public class InfinispanExtensionTest extends AbstractExtensionTest {
     }
 
     private InfinispanExtensionTest(InfinispanExtension extension) {
-        super(extension, extension, "subsystem-infinispan.xml", Namespace.CURRENT.getUri());
+        super(new InfinispanSubsystemParser_1_0(), new InfinispanSubsystemParser_1_0(), "subsystem-infinispan.xml", Namespace.CURRENT.getUri());
     }
     
     @Override

@@ -71,7 +71,6 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
     }
 
     private final EmbeddedCacheManagerConfiguration configuration;
-
     private volatile CacheContainer container;
 
     public EmbeddedCacheManagerService(EmbeddedCacheManagerConfiguration configuration) {
@@ -93,9 +92,12 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
      */
     @Override
     public void start(StartContext context) throws StartException {
+
+        // setup global configuration for this cache container
         EmbeddedCacheManagerDefaults defaults = this.configuration.getDefaults();
-        GlobalConfiguration global = defaults.getGlobalConfiguration().clone();
         TransportConfiguration transport = this.configuration.getTransportConfiguration();
+
+        GlobalConfiguration global = defaults.getGlobalConfiguration().clone();
         FluentGlobalConfiguration.TransportConfig fluentTransport = global.fluent().transport();
         if (transport != null) {
             fluentTransport.transportClass(JGroupsTransport.class);
@@ -143,6 +145,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
         FluentGlobalConfiguration.GlobalJmxStatisticsConfig globalJmx = fluentTransport.globalJmxStatistics();
         globalJmx.cacheManagerName(this.configuration.getName());
 
+        // setup default configuration for this cache container
         Configuration defaultConfig = new Configuration();
         FluentConfiguration fluent = defaultConfig.fluent();
 
@@ -167,7 +170,8 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
 
         EmbeddedCacheManager manager = new DefaultCacheManager(global, defaultConfig, false);
         manager.addListener(this);
-        // Add named configurations
+
+        // Add named configurations for this cache manager
         for (Map.Entry<String, Configuration> entry: this.configuration.getConfigurations().entrySet()) {
             Configuration overrides = entry.getValue();
             Configuration configuration = defaults.getDefaultConfiguration(overrides.getCacheMode()).clone();

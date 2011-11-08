@@ -31,8 +31,8 @@ import java.util.Map;
 public enum Namespace {
     // must be first
     UNKNOWN(null),
-
     INFINISPAN_1_0("urn:jboss:domain:infinispan:1.0"),
+    INFINISPAN_1_1("urn:jboss:domain:infinispan:1.1"),
     ;
 
     /**

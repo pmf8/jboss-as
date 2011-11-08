@@ -84,13 +84,30 @@ import org.jgroups.Channel;
  */
 public class CacheContainerAdd extends AbstractAddStepHandler implements DescriptionProvider {
 
+    static final CacheContainerAdd INSTANCE = new CacheContainerAdd();
+
     static ModelNode createOperation(ModelNode address, ModelNode existing) {
         ModelNode operation = Util.getEmptyOperation(ADD, address);
         populate(existing, operation);
         return operation;
     }
 
+    static String getContainerJNDIName(ModelNode container, String name) {
+        JndiName jndiName = null ;
+
+        if (container.hasDefined(ModelKeys.JNDI_NAME)) {
+            // convert the JNDI name passed by the user
+            jndiName = toJndiName(container.get(ModelKeys.JNDI_NAME).asString()) ;
+        }
+        else {
+            // build the name from scratch as java:jboss/infinispan/<container name>
+            jndiName = JndiName.of("java:jboss").append(InfinispanExtension.SUBSYSTEM_NAME).append(name) ;
+        }
+        return jndiName.getAbsoluteName();
+    }
+
     private static void populate(ModelNode source, ModelNode target) {
+        // cache-container attributes
         target.get(ModelKeys.DEFAULT_CACHE).set(source.require(ModelKeys.DEFAULT_CACHE));
         if (source.hasDefined(ModelKeys.JNDI_NAME)) {
             target.get(ModelKeys.JNDI_NAME).set(source.get(ModelKeys.JNDI_NAME));
@@ -104,6 +121,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         if (source.hasDefined(ModelKeys.REPLICATION_QUEUE_EXECUTOR)) {
             target.get(ModelKeys.REPLICATION_QUEUE_EXECUTOR).set(source.get(ModelKeys.REPLICATION_QUEUE_EXECUTOR));
         }
+        // cache-container elements
         if (source.hasDefined(ModelKeys.ALIAS)) {
             ModelNode aliases = target.get(ModelKeys.ALIAS);
             for (ModelNode alias : source.get(ModelKeys.ALIAS).asList()) {
@@ -112,10 +130,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         }
         if (source.hasDefined(ModelKeys.TRANSPORT)) {
             target.get(ModelKeys.TRANSPORT).set(source.get(ModelKeys.TRANSPORT));
-        }
-        ModelNode caches = target.get(ModelKeys.CACHE);
-        for (ModelNode cache : source.require(ModelKeys.CACHE).asList()) {
-            caches.add(cache);
         }
     }
 
@@ -140,6 +154,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             }
         }
 
+        // setup the EmbeddedCacheManagerService
         ServiceTarget target = context.getServiceTarget();
         ServiceName serviceName = EmbeddedCacheManagerService.getServiceName(name);
         ServiceBuilder<CacheContainer> builder = target.addService(serviceName, new EmbeddedCacheManagerService(config))
@@ -151,7 +166,8 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                 .addAliases(aliases)
                 .setInitialMode(ServiceController.Mode.ON_DEMAND);
 
-        String jndiName = (operation.hasDefined(ModelKeys.JNDI_NAME) ? toJndiName(operation.get(ModelKeys.JNDI_NAME).asString()) : JndiName.of("java:jboss").append(InfinispanExtension.SUBSYSTEM_NAME).append(name)).getAbsoluteName();
+        // set up the BinderService to store the JNDI name for the container
+        String jndiName = getContainerJNDIName(operation, name) ;
         final ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
 
         BinderService binder = new BinderService(bindInfo.getBindName());
@@ -161,7 +177,10 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binder.getNamingStoreInjector())
                 .setInitialMode(ServiceController.Mode.ON_DEMAND)
                 .install());
-        boolean requiresTransport = false;
+
+        boolean requiresTransport = true;
+
+        /*
         Map<String, Configuration> configurations = config.getConfigurations();
         for (ModelNode cache : operation.require(ModelKeys.CACHE).asList()) {
             String cacheName = cache.require(ModelKeys.NAME).asString();
@@ -170,149 +189,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             FluentConfiguration fluent = configuration.fluent();
             Configuration.CacheMode mode = CacheMode.valueOf(cache.require(ModelKeys.MODE).asString());
             requiresTransport |= mode.isClustered();
-            fluent.mode(mode);
-            if (cache.hasDefined(ModelKeys.BATCHING)) {
-                if (cache.get(ModelKeys.BATCHING).asBoolean()) {
-                    fluent.invocationBatching();
-                }
-            }
-            if (cache.hasDefined(ModelKeys.INDEXING)) {
-                Indexing indexing = Indexing.valueOf(cache.get(ModelKeys.INDEXING).asString());
-                if (indexing.isEnabled()) {
-                    fluent.indexing().indexLocalOnly(indexing.isLocalOnly());
-                }
-            }
-            if (cache.hasDefined(ModelKeys.QUEUE_SIZE)) {
-                fluent.async().replQueueMaxElements(cache.get(ModelKeys.QUEUE_SIZE).asInt());
-            }
-            if (cache.hasDefined(ModelKeys.QUEUE_FLUSH_INTERVAL)) {
-                fluent.async().replQueueInterval(cache.get(ModelKeys.QUEUE_FLUSH_INTERVAL).asLong());
-            }
-            if (cache.hasDefined(ModelKeys.REMOTE_TIMEOUT)) {
-                fluent.sync().replTimeout(cache.get(ModelKeys.REMOTE_TIMEOUT).asLong());
-            }
-            if (cache.hasDefined(ModelKeys.OWNERS)) {
-                fluent.hash().numOwners(cache.get(ModelKeys.OWNERS).asInt());
-            }
-            if (cache.hasDefined(ModelKeys.VIRTUAL_NODES)) {
-                fluent.hash().numVirtualNodes(cache.get(ModelKeys.VIRTUAL_NODES).asInt());
-            }
-            if (cache.hasDefined(ModelKeys.L1_LIFESPAN)) {
-                long lifespan = cache.get(ModelKeys.L1_LIFESPAN).asLong();
-                if (lifespan > 0) {
-                    fluent.l1().lifespan(lifespan);
-                } else {
-                    fluent.l1().disable();
-                }
-            }
-            if (cache.hasDefined(ModelKeys.LOCKING)) {
-                ModelNode locking = cache.get(ModelKeys.LOCKING);
-                FluentConfiguration.LockingConfig fluentLocking = fluent.locking();
-                if (locking.hasDefined(ModelKeys.ISOLATION)) {
-                    fluentLocking.isolationLevel(IsolationLevel.valueOf(locking.get(ModelKeys.ISOLATION).asString()));
-                }
-                if (locking.hasDefined(ModelKeys.STRIPING)) {
-                    fluentLocking.useLockStriping(locking.get(ModelKeys.STRIPING).asBoolean());
-                }
-                if (locking.hasDefined(ModelKeys.ACQUIRE_TIMEOUT)) {
-                    fluentLocking.lockAcquisitionTimeout(locking.get(ModelKeys.ACQUIRE_TIMEOUT).asLong());
-                }
-                if (locking.hasDefined(ModelKeys.CONCURRENCY_LEVEL)) {
-                    fluentLocking.concurrencyLevel(locking.get(ModelKeys.CONCURRENCY_LEVEL).asInt());
-                }
-            }
-            FluentConfiguration.TransactionConfig fluentTx = fluent.transaction();
-            TransactionMode txMode = TransactionMode.NON_XA;
-            LockingMode lockingMode = LockingMode.OPTIMISTIC;
-            if (cache.hasDefined(ModelKeys.TRANSACTION)) {
-                ModelNode transaction = cache.get(ModelKeys.TRANSACTION);
-                if (transaction.hasDefined(ModelKeys.STOP_TIMEOUT)) {
-                    fluentTx.cacheStopTimeout(transaction.get(ModelKeys.STOP_TIMEOUT).asInt());
-                }
-                if (transaction.hasDefined(ModelKeys.MODE)) {
-                    txMode = TransactionMode.valueOf(transaction.get(ModelKeys.MODE).asString());
-                }
-                if (transaction.hasDefined(ModelKeys.LOCKING)) {
-                    lockingMode = LockingMode.valueOf(transaction.get(ModelKeys.LOCKING).asString());
-                }
-                if (transaction.hasDefined(ModelKeys.EAGER_LOCKING)) {
-                    EagerLocking eager = EagerLocking.valueOf(transaction.get(ModelKeys.EAGER_LOCKING).asString());
-                    fluentTx.lockingMode(eager.isEnabled() ? LockingMode.PESSIMISTIC : LockingMode.OPTIMISTIC).eagerLockSingleNode(eager.isSingleOwner());
-                }
-            }
-            fluentTx.transactionMode(txMode.getMode());
-            fluentTx.lockingMode(lockingMode);
-            FluentConfiguration.RecoveryConfig recovery = fluentTx.useSynchronization(!txMode.isXAEnabled()).recovery();
-            if (txMode.isRecoveryEnabled()) {
-                recovery.syncCommitPhase(true).syncRollbackPhase(true);
-            } else {
-                recovery.disable();
-            }
-            if (cache.hasDefined(ModelKeys.EVICTION)) {
-                ModelNode eviction = cache.get(ModelKeys.EVICTION);
-                FluentConfiguration.EvictionConfig fluentEviction = fluent.eviction();
-                if (eviction.hasDefined(ModelKeys.STRATEGY)) {
-                    fluentEviction.strategy(EvictionStrategy.valueOf(eviction.get(ModelKeys.STRATEGY).asString()));
-                }
-                if (eviction.hasDefined(ModelKeys.MAX_ENTRIES)) {
-                    fluentEviction.maxEntries(eviction.get(ModelKeys.MAX_ENTRIES).asInt());
-                }
-            }
-            if (cache.hasDefined(ModelKeys.EXPIRATION)) {
-                ModelNode expiration = cache.get(ModelKeys.EXPIRATION);
-                FluentConfiguration.ExpirationConfig fluentExpiration = fluent.expiration();
-                if (expiration.hasDefined(ModelKeys.MAX_IDLE)) {
-                    fluentExpiration.maxIdle(expiration.get(ModelKeys.MAX_IDLE).asLong());
-                }
-                if (expiration.hasDefined(ModelKeys.LIFESPAN)) {
-                    fluentExpiration.lifespan(expiration.get(ModelKeys.LIFESPAN).asLong());
-                }
-                if (expiration.hasDefined(ModelKeys.INTERVAL)) {
-                    fluentExpiration.wakeUpInterval(expiration.get(ModelKeys.INTERVAL).asLong());
-                }
-            }
-            if (cache.hasDefined(ModelKeys.STATE_TRANSFER)) {
-                ModelNode stateTransfer = cache.get(ModelKeys.STATE_TRANSFER);
-                FluentConfiguration.StateRetrievalConfig fluentStateTransfer = fluent.stateRetrieval();
-                if (stateTransfer.hasDefined(ModelKeys.ENABLED)) {
-                    fluentStateTransfer.fetchInMemoryState(stateTransfer.get(ModelKeys.ENABLED).asBoolean());
-                }
-                if (stateTransfer.hasDefined(ModelKeys.TIMEOUT)) {
-                    fluentStateTransfer.timeout(stateTransfer.get(ModelKeys.TIMEOUT).asLong());
-                }
-                if (stateTransfer.hasDefined(ModelKeys.FLUSH_TIMEOUT)) {
-                    fluentStateTransfer.logFlushTimeout(stateTransfer.get(ModelKeys.FLUSH_TIMEOUT).asLong());
-                }
-            }
-            if (cache.hasDefined(ModelKeys.REHASHING)) {
-                ModelNode rehashing = cache.get(ModelKeys.REHASHING);
-                FluentConfiguration.HashConfig fluentHash = fluent.hash();
-                if (rehashing.hasDefined(ModelKeys.ENABLED)) {
-                    fluentHash.rehashEnabled(rehashing.get(ModelKeys.ENABLED).asBoolean());
-                }
-                if (rehashing.hasDefined(ModelKeys.TIMEOUT)) {
-                    fluentHash.rehashRpcTimeout(rehashing.get(ModelKeys.TIMEOUT).asLong());
-                }
-            }
-            if (cache.hasDefined(ModelKeys.STORE)) {
-                ModelNode store = cache.get(ModelKeys.STORE);
-                FluentConfiguration.LoadersConfig fluentStores = fluent.loaders();
-                fluentStores.shared(store.hasDefined(ModelKeys.SHARED) ? store.get(ModelKeys.SHARED).asBoolean() : false);
-                fluentStores.preload(store.hasDefined(ModelKeys.PRELOAD) ? store.get(ModelKeys.PRELOAD).asBoolean() : false);
-                fluentStores.passivation(store.hasDefined(ModelKeys.PASSIVATION) ? store.get(ModelKeys.PASSIVATION).asBoolean() : true);
-                CacheStoreConfig storeConfig = buildCacheStore(name, builder, store);
-                storeConfig.singletonStore().enabled(store.hasDefined(ModelKeys.SINGLETON) ? store.get(ModelKeys.SINGLETON).asBoolean() : false);
-                storeConfig.fetchPersistentState(store.hasDefined(ModelKeys.FETCH_STATE) ? store.get(ModelKeys.FETCH_STATE).asBoolean() : true);
-                storeConfig.purgeOnStartup(store.hasDefined(ModelKeys.PURGE) ? store.get(ModelKeys.PURGE).asBoolean() : true);
-                if (store.hasDefined(ModelKeys.PROPERTY) && (storeConfig instanceof AbstractCacheStoreConfig)) {
-                    Properties properties = new Properties();
-                    for (Property property : store.get(ModelKeys.PROPERTY).asPropertyList()) {
-                        properties.setProperty(property.getName(), property.getValue().asString());
-                    }
-                    ((AbstractCacheStoreConfig) storeConfig).setProperties(properties);
-                }
-                fluentStores.addCacheLoader(storeConfig);
-            }
+
             configurations.put(cacheName, configuration);
 
             StartMode startMode = cache.hasDefined(ModelKeys.START) ? StartMode.valueOf(cache.get(ModelKeys.START).asString()) : StartMode.LAZY;
@@ -334,9 +211,11 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             }
             newControllers.add(cacheBuilder.install());
         }
+
         if (!configurations.containsKey(defaultCache)) {
             throw MESSAGES.invalidCacheStore(defaultCache, name);
         }
+        */
 
         if (requiresTransport) {
             Transport transportConfig = new Transport();
@@ -399,23 +278,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         }
     }
 
-    private CacheStoreConfig buildCacheStore(final String name, ServiceBuilder<CacheContainer> builder, ModelNode store) {
-        if (store.hasDefined(ModelKeys.CLASS)) {
-            String className = store.get(ModelKeys.CLASS).asString();
-            try {
-                CacheStore cacheStore = Class.forName(className).asSubclass(CacheStore.class).newInstance();
-                return cacheStore.getConfigurationClass().asSubclass(CacheStoreConfig.class).newInstance();
-            } catch (Exception e) {
-                throw MESSAGES.invalidCacheStore(e, className);
-            }
-        }
-        // If no class, we assume it's a file cache store
-        FileCacheStoreConfig storeConfig = new FileCacheStoreConfig();
-        String relativeTo = store.hasDefined(ModelKeys.RELATIVE_TO) ? store.get(ModelKeys.RELATIVE_TO).asString() : ServerEnvironment.SERVER_DATA_DIR;
-        builder.addDependency(AbstractPathService.pathNameOf(relativeTo), String.class, storeConfig.getRelativeToInjector());
-        storeConfig.setPath(store.hasDefined(ModelKeys.PATH) ? store.get(ModelKeys.PATH).asString() : name);
-        return storeConfig;
-    }
+
 
     private static JndiName toJndiName(String value) {
         return value.startsWith("java:") ? JndiName.of(value) : JndiName.of("java:jboss").append(value.startsWith("/") ? value.substring(1) : value);
