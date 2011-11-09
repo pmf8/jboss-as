@@ -24,6 +24,8 @@ import java.util.List;
 import static org.jboss.as.clustering.infinispan.InfinispanLogger.ROOT_LOGGER;
 
 /**
+ * Parser which creates a flattened ModelNode representation of cache-container and cache.
+ *
  * @author Richard Achmatowicz (c) 2011 Red Hat Inc.
  */
 public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<ModelNode>>, XMLElementWriter<SubsystemMarshallingContext> {
@@ -67,7 +69,8 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                     Element element = Element.forName(reader.getLocalName());
                     switch (element) {
                         case CACHE_CONTAINER: {
-                            operations.add(this.parseContainer(reader, address));
+                            // parseContainer() now generates separate operations for adding caches
+                            operations.add(this.parseContainer(reader, operations, address));
                             break;
                         }
                         default: {
@@ -83,7 +86,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         }
     }
 
-    private ModelNode parseContainer(XMLExtendedStreamReader reader, ModelNode address) throws XMLStreamException {
+    private ModelNode parseContainer(XMLExtendedStreamReader reader, List<ModelNode> operations, ModelNode address) throws XMLStreamException {
 
         ModelNode container = Util.getEmptyOperation(ModelDescriptionConstants.ADD, null);
         container.get(ModelDescriptionConstants.OP_ADDR).set(address);
@@ -138,23 +141,55 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                     break;
                 }
                 case TRANSPORT: {
-                    this.parseTransport(reader, container.get(ModelKeys.TRANSPORT).setEmptyObject());
+                    this.parseTransportAndFlatten(reader, container);
                     break;
                 }
                 case LOCAL_CACHE: {
-                    this.parseLocalCache(reader, container.get(ModelKeys.CACHE).add());
+                    // create an add operation for /subsystem=infinispan/cache-container=<name>
+                    ModelNode localCache = Util.getEmptyOperation(ModelDescriptionConstants.ADD, address);
+                    localCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.CACHE_CONTAINER, name);
+                    // parse the <local-cache/> element
+                    this.parseLocalCache(reader, localCache);
+                    // set resource address to /subsystem=infinispan/cache-container=<name>/local-cache=<localCacheName>
+                    ModelNode localCacheName = localCache.get(ModelKeys.NAME);
+                    localCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.LOCAL_CACHE, localCacheName);
+                    operations.add(localCache);
                     break;
                 }
                 case INVALIDATION_CACHE: {
-                    this.parseInvalidationCache(reader, container.get(ModelKeys.CACHE).add());
+                    // create an add operation for /subsystem=infinispan/cache-container=<name>
+                    ModelNode invalidationCache = Util.getEmptyOperation(ModelDescriptionConstants.ADD, address);
+                    invalidationCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.CACHE_CONTAINER, name);
+                    // parse the <invalidation-cache/> element
+                    this.parseInvalidationCache(reader, invalidationCache);
+                    // update resource address to /subsystem=infinispan/cache-container=<name>/invalidation-cache=<invalidationCacheName>
+                    ModelNode invalidationCacheName = invalidationCache.get(ModelKeys.NAME);
+                    invalidationCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.INVALIDATION_CACHE, invalidationCacheName);
+                    operations.add(invalidationCache);
                     break;
                 }
                 case REPLICATED_CACHE: {
-                    this.parseReplicatedCache(reader, container.get(ModelKeys.CACHE).add());
+                    // create an add operation for /subsystem=infinispan/cache-container=<name>
+                    ModelNode replicatedCache = Util.getEmptyOperation(ModelDescriptionConstants.ADD, address);
+                    replicatedCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.CACHE_CONTAINER, name);
+                     // parse the <invalidation-cache/> element
+                    this.parseReplicatedCache(reader, replicatedCache);
+                    // update resource address to /subsystem=infinispan/cache-container=<name>/replicated-cache=<replicatedCacheName>
+                    ModelNode replicatedCacheName = replicatedCache.get(ModelKeys.NAME);
+                    replicatedCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.REPLICATED_CACHE, replicatedCacheName);
+                    operations.add(replicatedCache);
                     break;
                 }
                 case DISTRIBUTED_CACHE: {
-                    this.parseDistributedCache(reader, container.get(ModelKeys.CACHE).add());
+                    // create an add operation for /subsystem=infinispan/cache-container=<name>
+                    ModelNode distributedCache = Util.getEmptyOperation(ModelDescriptionConstants.ADD, address);
+                    distributedCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.CACHE_CONTAINER, name);
+                    // parse the <invalidation-cache/> element
+                    this.parseDistributedCache(reader, distributedCache);
+                    // update resource address to /subsystem=infinispan/cache-container=<name>/distributed-cache=<distName>
+                    ModelNode distributedCacheName = distributedCache.get(ModelKeys.NAME);
+                    distributedCache.get(ModelDescriptionConstants.OP_ADDR).add(ModelKeys.DISTRIBUTED_CACHE, distributedCacheName);
+                    operations.add(distributedCache);
                     break;
                 }
                 default: {
@@ -166,33 +201,39 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         return container;
     }
 
-    private void parseTransport(XMLExtendedStreamReader reader, ModelNode transport) throws XMLStreamException {
+    private void parseTransportAndFlatten(XMLExtendedStreamReader reader, ModelNode container) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           container.get(ModelKeys.TRANSPORT).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case STACK: {
-                    transport.get(ModelKeys.STACK).set(value);
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.STACK).set(value);
                     break;
                 }
                 case EXECUTOR: {
-                    transport.get(ModelKeys.EXECUTOR).set(value);
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.EXECUTOR).set(value);
                     break;
                 }
                 case LOCK_TIMEOUT: {
-                    transport.get(ModelKeys.LOCK_TIMEOUT).set(Long.parseLong(value));
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.LOCK_TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 case SITE: {
-                    transport.get(ModelKeys.SITE).set(value);
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.SITE).set(value);
                     break;
                 }
                 case RACK: {
-                    transport.get(ModelKeys.RACK).set(value);
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.RACK).set(value);
                     break;
                 }
                 case MACHINE: {
-                    transport.get(ModelKeys.MACHINE).set(value);
+                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.MACHINE).set(value);
                     break;
                 }
                 default: {
@@ -280,7 +321,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
 
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
-            this.parseCacheElement(reader, element, cache);
+            this.parseCacheElementAndFlatten(reader, element, cache);
         }
     }
 
@@ -315,11 +356,11 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
                 case REHASHING: {
-                    this.parseRehashing(reader, cache.get(ModelKeys.REHASHING).setEmptyObject());
+                    this.parseRehashingAndFlatten(reader, cache);
                     break;
                 }
                 default: {
-                    this.parseCacheElement(reader, element, cache);
+                    this.parseCacheElementAndFlatten(reader, element, cache);
                 }
             }
         }
@@ -340,11 +381,11 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
                 case STATE_TRANSFER: {
-                    this.parseStateTransfer(reader, cache.get(ModelKeys.STATE_TRANSFER).setEmptyObject());
+                    this.parseStateTransferAndFlatten(reader, cache);
                     break;
                 }
                 default: {
-                    this.parseCacheElement(reader, element, cache);
+                    this.parseCacheElementAndFlatten(reader, element, cache);
                 }
             }
         }
@@ -363,34 +404,34 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
 
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
-            this.parseCacheElement(reader, element, cache);
+            this.parseCacheElementAndFlatten(reader, element, cache);
         }
     }
 
-    private void parseCacheElement(XMLExtendedStreamReader reader, Element element, ModelNode cache) throws XMLStreamException {
+    private void parseCacheElementAndFlatten(XMLExtendedStreamReader reader, Element element, ModelNode cache) throws XMLStreamException {
         switch (element) {
             case LOCKING: {
-                this.parseLocking(reader, cache.get(ModelKeys.LOCKING).setEmptyObject());
+                this.parseLockingAndFlatten(reader, cache);
                 break;
             }
             case TRANSACTION: {
-                this.parseTransaction(reader, cache.get(ModelKeys.TRANSACTION).setEmptyObject());
+                this.parseTransactionAndFlatten(reader, cache);
                 break;
             }
             case EVICTION: {
-                this.parseEviction(reader, cache.get(ModelKeys.EVICTION).setEmptyObject());
+                this.parseEvictionAndFlatten(reader, cache);
                 break;
             }
             case EXPIRATION: {
-                this.parseExpiration(reader, cache.get(ModelKeys.EXPIRATION).setEmptyObject());
+                this.parseExpirationAndFlatten(reader, cache);
                 break;
             }
             case STORE: {
-                this.parseCustomStore(reader, cache.get(ModelKeys.STORE).setEmptyObject());
+                this.parseCustomStoreAndFlatten(reader, cache);
                 break;
             }
             case FILE_STORE: {
-                this.parseFileStore(reader, cache.get(ModelKeys.STORE).setEmptyObject());
+                this.parseFileStoreAndFlatten(reader, cache);
                 break;
             }
             default: {
@@ -399,17 +440,23 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         }
     }
 
-    private void parseRehashing(XMLExtendedStreamReader reader, ModelNode rehashing) throws XMLStreamException {
+    private void parseRehashingAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.REHASHING).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case ENABLED: {
-                    rehashing.get(ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
+                    cache.get(ModelKeys.REHASHING+"."+ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case TIMEOUT: {
-                    rehashing.get(ModelKeys.TIMEOUT).set(Long.parseLong(value));
+                    cache.get(ModelKeys.REHASHING+"."+ModelKeys.TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -420,21 +467,27 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseStateTransfer(XMLExtendedStreamReader reader, ModelNode stateTransfer) throws XMLStreamException {
+    private void parseStateTransferAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.STATE_TRANSFER).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case ENABLED: {
-                    stateTransfer.get(ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
+                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case TIMEOUT: {
-                    stateTransfer.get(ModelKeys.TIMEOUT).set(Long.parseLong(value));
+                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 case FLUSH_TIMEOUT: {
-                    stateTransfer.get(ModelKeys.FLUSH_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.FLUSH_TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -445,7 +498,13 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseLocking(XMLExtendedStreamReader reader, ModelNode locking) throws XMLStreamException {
+    private void parseLockingAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.LOCKING).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
@@ -453,22 +512,22 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 case ISOLATION: {
                     try {
                         IsolationLevel level = IsolationLevel.valueOf(value);
-                        locking.get(ModelKeys.ISOLATION).set(level.name());
+                        cache.get(ModelKeys.LOCKING+"."+ModelKeys.ISOLATION).set(level.name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
                     break;
                 }
                 case STRIPING: {
-                    locking.get(ModelKeys.STRIPING).set(Boolean.parseBoolean(value));
+                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.STRIPING).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case ACQUIRE_TIMEOUT: {
-                    locking.get(ModelKeys.ACQUIRE_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.ACQUIRE_TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 case CONCURRENCY_LEVEL: {
-                    locking.get(ModelKeys.CONCURRENCY_LEVEL).set(Integer.parseInt(value));
+                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.CONCURRENCY_LEVEL).set(Integer.parseInt(value));
                     break;
                 }
                 default: {
@@ -479,18 +538,24 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseTransaction(XMLExtendedStreamReader reader, ModelNode transaction) throws XMLStreamException {
+    private void parseTransactionAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.TRANSACTION).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case STOP_TIMEOUT: {
-                    transaction.get(ModelKeys.STOP_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.STOP_TIMEOUT).set(Long.parseLong(value));
                     break;
                 }
                 case MODE: {
                     try {
-                        transaction.get(ModelKeys.MODE).set(TransactionMode.valueOf(value).name());
+                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.MODE).set(TransactionMode.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -498,7 +563,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 }
                 case LOCKING: {
                     try {
-                        transaction.get(ModelKeys.LOCKING).set(LockingMode.valueOf(value).name());
+                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.LOCKING).set(LockingMode.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -506,7 +571,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 }
                 case EAGER_LOCKING: {
                     try {
-                        transaction.get(ModelKeys.EAGER_LOCKING).set(EagerLocking.valueOf(value).name());
+                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.EAGER_LOCKING).set(EagerLocking.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -520,7 +585,13 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseEviction(XMLExtendedStreamReader reader, ModelNode eviction) throws XMLStreamException {
+    private void parseEvictionAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.EVICTION).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
@@ -528,14 +599,14 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 case STRATEGY: {
                     try {
                         EvictionStrategy strategy = EvictionStrategy.valueOf(value);
-                        eviction.get(ModelKeys.STRATEGY).set(strategy.name());
+                        cache.get(ModelKeys.EVICTION+"."+ModelKeys.STRATEGY).set(strategy.name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
                     break;
                 }
                 case MAX_ENTRIES: {
-                    eviction.get(ModelKeys.MAX_ENTRIES).set(Integer.parseInt(value));
+                    cache.get(ModelKeys.EVICTION+"."+ModelKeys.MAX_ENTRIES).set(Integer.parseInt(value));
                     break;
                 }
                 case INTERVAL: {
@@ -550,21 +621,27 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseExpiration(XMLExtendedStreamReader reader, ModelNode expiration) throws XMLStreamException {
+    private void parseExpirationAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.EXPIRATION).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case MAX_IDLE: {
-                    expiration.get(ModelKeys.MAX_IDLE).set(Long.parseLong(value));
+                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.MAX_IDLE).set(Long.parseLong(value));
                     break;
                 }
                 case LIFESPAN: {
-                    expiration.get(ModelKeys.LIFESPAN).set(Long.parseLong(value));
+                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.LIFESPAN).set(Long.parseLong(value));
                     break;
                 }
                 case INTERVAL: {
-                    expiration.get(ModelKeys.INTERVAL).set(Long.parseLong(value));
+                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.INTERVAL).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -575,74 +652,86 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseCustomStore(XMLExtendedStreamReader reader, ModelNode store) throws XMLStreamException {
+    private void parseCustomStoreAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.STORE).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case CLASS: {
-                    store.get(ModelKeys.CLASS).set(value);
+                    cache.get(ModelKeys.STORE+"."+ModelKeys.CLASS).set(value);
                     break;
                 }
                 default: {
-                    this.parseStoreAttribute(reader, i, attribute, value, store);
+                    this.parseStoreAttributeAndFlatten(reader, i, attribute, value, cache, ModelKeys.STORE);
                 }
             }
         }
 
-        if (!store.hasDefined(ModelKeys.CLASS)) {
+        if (!cache.hasDefined(ModelKeys.STORE+"."+ModelKeys.CLASS)) {
             throw ParseUtils.missingRequired(reader, EnumSet.of(Attribute.CLASS));
         }
 
-        this.parseStoreProperties(reader, store);
+        this.parseStorePropertiesAndFlatten(reader, cache, ModelKeys.STORE);
     }
 
-    private void parseFileStore(XMLExtendedStreamReader reader, ModelNode store) throws XMLStreamException {
+    private void parseFileStoreAndFlatten(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+        // is child element present?
+        if (reader.getAttributeCount() > 0) {
+           cache.get(ModelKeys.FILE_STORE).set(Boolean.TRUE);
+        }
+
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case RELATIVE_TO: {
-                    store.get(ModelKeys.RELATIVE_TO).set(value);
+                    cache.get(ModelKeys.FILE_STORE+"."+ModelKeys.RELATIVE_TO).set(value);
                     break;
                 }
                 case PATH: {
-                    store.get(ModelKeys.PATH).set(value);
+                    cache.get(ModelKeys.FILE_STORE+"."+ModelKeys.PATH).set(value);
                     break;
                 }
                 default: {
-                    this.parseStoreAttribute(reader, i, attribute, value, store);
+                    this.parseStoreAttributeAndFlatten(reader, i, attribute, value, cache, ModelKeys.FILE_STORE);
                 }
             }
         }
 
-        this.parseStoreProperties(reader, store);
+        this.parseStorePropertiesAndFlatten(reader, cache, ModelKeys.FILE_STORE);
     }
 
-    private void parseStoreAttribute(XMLExtendedStreamReader reader, int index, Attribute attribute, String value, ModelNode store) throws XMLStreamException {
+    private void parseStoreAttributeAndFlatten(XMLExtendedStreamReader reader, int index, Attribute attribute, String value, ModelNode cache, String storeKey) throws XMLStreamException {
         switch (attribute) {
             case SHARED: {
-                store.get(ModelKeys.SHARED).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.SHARED).set(Boolean.parseBoolean(value));
                 break;
             }
             case PRELOAD: {
-                store.get(ModelKeys.PRELOAD).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.PRELOAD).set(Boolean.parseBoolean(value));
                 break;
             }
             case PASSIVATION: {
-                store.get(ModelKeys.PASSIVATION).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.PASSIVATION).set(Boolean.parseBoolean(value));
                 break;
             }
             case FETCH_STATE: {
-                store.get(ModelKeys.FETCH_STATE).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.FETCH_STATE).set(Boolean.parseBoolean(value));
                 break;
             }
             case PURGE: {
-                store.get(ModelKeys.PURGE).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.PURGE).set(Boolean.parseBoolean(value));
                 break;
             }
             case SINGLETON: {
-                store.get(ModelKeys.SINGLETON).set(Boolean.parseBoolean(value));
+                cache.get(storeKey+"."+ModelKeys.SINGLETON).set(Boolean.parseBoolean(value));
                 break;
             }
             default: {
@@ -651,7 +740,10 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
         }
     }
 
-    private void parseStoreProperties(XMLExtendedStreamReader reader, ModelNode node) throws XMLStreamException {
+    /*
+     * transform <property name="X">Y</property> into <storeKey>.property.X=Y
+     */
+    private void parseStorePropertiesAndFlatten(XMLExtendedStreamReader reader, ModelNode node, String storeKey) throws XMLStreamException {
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
@@ -663,6 +755,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
                         switch (attribute) {
                             case NAME: {
+                                // property name
                                 property = value;
                                 break;
                             }
@@ -674,8 +767,9 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                     if (property == null) {
                         throw ParseUtils.missingRequired(reader, Collections.singleton(Attribute.NAME));
                     }
+                    // property value
                     String value = reader.getElementText();
-                    node.get(ModelKeys.PROPERTY).add(property, value);
+                    node.get(storeKey+"."+ModelKeys.PROPERTY+"."+property).set(value);
                     break;
                 }
                 default: {
