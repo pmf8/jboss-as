@@ -9,6 +9,7 @@ import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.parsing.ParseUtils;
 import org.jboss.as.controller.persistence.SubsystemMarshallingContext;
 import org.jboss.dmr.ModelNode;
+import org.jboss.dmr.ModelType;
 import org.jboss.dmr.Property;
 import org.jboss.staxmapper.XMLElementReader;
 import org.jboss.staxmapper.XMLElementWriter;
@@ -17,9 +18,11 @@ import org.jboss.staxmapper.XMLExtendedStreamWriter;
 
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
+import java.sql.SQLOutput;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.ArrayList;
 
 import static org.jboss.as.clustering.infinispan.InfinispanLogger.ROOT_LOGGER;
 
@@ -69,8 +72,16 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                     Element element = Element.forName(reader.getLocalName());
                     switch (element) {
                         case CACHE_CONTAINER: {
+                            // need to add the cache container before adding the caches contained within it
+                            List<ModelNode> addCacheOperations = new ArrayList<ModelNode>() ;
+
                             // parseContainer() now generates separate operations for adding caches
-                            operations.add(this.parseContainer(reader, operations, address));
+                            operations.add(this.parseContainer(reader, addCacheOperations, address));
+
+                            // now add the caches
+                            for (ModelNode addCacheOperation: addCacheOperations) {
+                                operations.add(addCacheOperation);
+                            }
                             break;
                         }
                         default: {
@@ -213,27 +224,27 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case STACK: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.STACK).set(value);
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.STACK)).set(value);
                     break;
                 }
                 case EXECUTOR: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.EXECUTOR).set(value);
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.EXECUTOR)).set(value);
                     break;
                 }
                 case LOCK_TIMEOUT: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.LOCK_TIMEOUT).set(Long.parseLong(value));
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.LOCK_TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 case SITE: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.SITE).set(value);
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.SITE)).set(value);
                     break;
                 }
                 case RACK: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.RACK).set(value);
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.RACK)).set(value);
                     break;
                 }
                 case MACHINE: {
-                    container.get(ModelKeys.TRANSPORT+"."+ModelKeys.MACHINE).set(value);
+                    container.get(flatten(ModelKeys.TRANSPORT, ModelKeys.MACHINE)).set(value);
                     break;
                 }
                 default: {
@@ -452,11 +463,11 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case ENABLED: {
-                    cache.get(ModelKeys.REHASHING+"."+ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
+                    cache.get(flatten(ModelKeys.REHASHING, ModelKeys.ENABLED)).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case TIMEOUT: {
-                    cache.get(ModelKeys.REHASHING+"."+ModelKeys.TIMEOUT).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.REHASHING, ModelKeys.TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -479,15 +490,15 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case ENABLED: {
-                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.ENABLED).set(Boolean.parseBoolean(value));
+                    cache.get(flatten(ModelKeys.STATE_TRANSFER, ModelKeys.ENABLED)).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case TIMEOUT: {
-                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.TIMEOUT).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.STATE_TRANSFER, ModelKeys.TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 case FLUSH_TIMEOUT: {
-                    cache.get(ModelKeys.STATE_TRANSFER+"."+ModelKeys.FLUSH_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.STATE_TRANSFER, ModelKeys.FLUSH_TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -512,22 +523,22 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 case ISOLATION: {
                     try {
                         IsolationLevel level = IsolationLevel.valueOf(value);
-                        cache.get(ModelKeys.LOCKING+"."+ModelKeys.ISOLATION).set(level.name());
+                        cache.get(flatten(ModelKeys.LOCKING, ModelKeys.ISOLATION)).set(level.name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
                     break;
                 }
                 case STRIPING: {
-                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.STRIPING).set(Boolean.parseBoolean(value));
+                    cache.get(flatten(ModelKeys.LOCKING, ModelKeys.STRIPING)).set(Boolean.parseBoolean(value));
                     break;
                 }
                 case ACQUIRE_TIMEOUT: {
-                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.ACQUIRE_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.LOCKING, ModelKeys.ACQUIRE_TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 case CONCURRENCY_LEVEL: {
-                    cache.get(ModelKeys.LOCKING+"."+ModelKeys.CONCURRENCY_LEVEL).set(Integer.parseInt(value));
+                    cache.get(flatten(ModelKeys.LOCKING, ModelKeys.CONCURRENCY_LEVEL)).set(Integer.parseInt(value));
                     break;
                 }
                 default: {
@@ -550,12 +561,12 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case STOP_TIMEOUT: {
-                    cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.STOP_TIMEOUT).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT)).set(Long.parseLong(value));
                     break;
                 }
                 case MODE: {
                     try {
-                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.MODE).set(TransactionMode.valueOf(value).name());
+                        cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE)).set(TransactionMode.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -563,7 +574,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 }
                 case LOCKING: {
                     try {
-                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.LOCKING).set(LockingMode.valueOf(value).name());
+                        cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING)).set(LockingMode.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -571,7 +582,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 }
                 case EAGER_LOCKING: {
                     try {
-                        cache.get(ModelKeys.TRANSACTION+"."+ModelKeys.EAGER_LOCKING).set(EagerLocking.valueOf(value).name());
+                        cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING)).set(EagerLocking.valueOf(value).name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
@@ -599,14 +610,14 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 case STRATEGY: {
                     try {
                         EvictionStrategy strategy = EvictionStrategy.valueOf(value);
-                        cache.get(ModelKeys.EVICTION+"."+ModelKeys.STRATEGY).set(strategy.name());
+                        cache.get(flatten(ModelKeys.EVICTION, ModelKeys.STRATEGY)).set(strategy.name());
                     } catch (IllegalArgumentException e) {
                         throw ParseUtils.invalidAttributeValue(reader, i);
                     }
                     break;
                 }
                 case MAX_ENTRIES: {
-                    cache.get(ModelKeys.EVICTION+"."+ModelKeys.MAX_ENTRIES).set(Integer.parseInt(value));
+                    cache.get(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES)).set(Integer.parseInt(value));
                     break;
                 }
                 case INTERVAL: {
@@ -633,15 +644,15 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case MAX_IDLE: {
-                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.MAX_IDLE).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.EXPIRATION, ModelKeys.MAX_IDLE)).set(Long.parseLong(value));
                     break;
                 }
                 case LIFESPAN: {
-                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.LIFESPAN).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.EXPIRATION, ModelKeys.LIFESPAN)).set(Long.parseLong(value));
                     break;
                 }
                 case INTERVAL: {
-                    cache.get(ModelKeys.EXPIRATION+"."+ModelKeys.INTERVAL).set(Long.parseLong(value));
+                    cache.get(flatten(ModelKeys.EXPIRATION, ModelKeys.INTERVAL)).set(Long.parseLong(value));
                     break;
                 }
                 default: {
@@ -664,7 +675,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case CLASS: {
-                    cache.get(ModelKeys.STORE+"."+ModelKeys.CLASS).set(value);
+                    cache.get(flatten(ModelKeys.STORE, ModelKeys.CLASS)).set(value);
                     break;
                 }
                 default: {
@@ -673,7 +684,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             }
         }
 
-        if (!cache.hasDefined(ModelKeys.STORE+"."+ModelKeys.CLASS)) {
+        if (!cache.hasDefined(flatten(ModelKeys.STORE, ModelKeys.CLASS))) {
             throw ParseUtils.missingRequired(reader, EnumSet.of(Attribute.CLASS));
         }
 
@@ -692,11 +703,11 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case RELATIVE_TO: {
-                    cache.get(ModelKeys.FILE_STORE+"."+ModelKeys.RELATIVE_TO).set(value);
+                    cache.get(flatten(ModelKeys.FILE_STORE,ModelKeys.RELATIVE_TO)).set(value);
                     break;
                 }
                 case PATH: {
-                    cache.get(ModelKeys.FILE_STORE+"."+ModelKeys.PATH).set(value);
+                    cache.get(flatten(ModelKeys.FILE_STORE, ModelKeys.PATH)).set(value);
                     break;
                 }
                 default: {
@@ -711,27 +722,27 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     private void parseStoreAttributeAndFlatten(XMLExtendedStreamReader reader, int index, Attribute attribute, String value, ModelNode cache, String storeKey) throws XMLStreamException {
         switch (attribute) {
             case SHARED: {
-                cache.get(storeKey+"."+ModelKeys.SHARED).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey,ModelKeys.SHARED)).set(Boolean.parseBoolean(value));
                 break;
             }
             case PRELOAD: {
-                cache.get(storeKey+"."+ModelKeys.PRELOAD).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey,ModelKeys.PRELOAD)).set(Boolean.parseBoolean(value));
                 break;
             }
             case PASSIVATION: {
-                cache.get(storeKey+"."+ModelKeys.PASSIVATION).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey, ModelKeys.PASSIVATION)).set(Boolean.parseBoolean(value));
                 break;
             }
             case FETCH_STATE: {
-                cache.get(storeKey+"."+ModelKeys.FETCH_STATE).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey,ModelKeys.FETCH_STATE)).set(Boolean.parseBoolean(value));
                 break;
             }
             case PURGE: {
-                cache.get(storeKey+"."+ModelKeys.PURGE).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey, ModelKeys.PURGE)).set(Boolean.parseBoolean(value));
                 break;
             }
             case SINGLETON: {
-                cache.get(storeKey+"."+ModelKeys.SINGLETON).set(Boolean.parseBoolean(value));
+                cache.get(flatten(storeKey, ModelKeys.SINGLETON)).set(Boolean.parseBoolean(value));
                 break;
             }
             default: {
@@ -741,9 +752,15 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     }
 
     /*
-     * transform <property name="X">Y</property> into <storeKey>.property.X=Y
+     * transform <store ...><property name="X">Y</property></store> into store.properties={"X"="Y",...}
      */
     private void parseStorePropertiesAndFlatten(XMLExtendedStreamReader reader, ModelNode node, String storeKey) throws XMLStreamException {
+
+        // process all <property/> children
+        StringBuilder propertyList = new StringBuilder() ;
+        boolean storePropertiesExist = false ;
+        String quote = "\"" ;
+
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
@@ -769,7 +786,11 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                     }
                     // property value
                     String value = reader.getElementText();
-                    node.get(storeKey+"."+ModelKeys.PROPERTY+"."+property).set(value);
+                    // mimic what the CLI will prepare for store.properties={"A"="a", "B"="b"}
+                    // the add handler processes these into a list
+                    propertyList.append(quote + property + quote + "=" + quote + value + quote) ;
+                    propertyList.append(",") ;
+                    storePropertiesExist = true;
                     break;
                 }
                 default: {
@@ -777,7 +798,20 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
                 }
             }
         }
+
+        if (storePropertiesExist) {
+            // remove last comma if necessary
+            if (propertyList.charAt(propertyList.length()-1) == ',') {
+               propertyList.deleteCharAt(propertyList.length()-1);
+            }
+            node.get(flatten(storeKey, ModelKeys.PROPERTIES)).set("{"+propertyList.toString()+"}");
+        }
     }
+
+    /*
+    public void writeContent(XMLExtendedStreamWriter writer, SubsystemMarshallingContext context) throws XMLStreamException {
+    }
+    */
 
     /**
      * {@inheritDoc}
@@ -787,12 +821,17 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     public void writeContent(XMLExtendedStreamWriter writer, SubsystemMarshallingContext context) throws XMLStreamException {
         context.startSubsystemElement(Namespace.CURRENT.getUri(), false);
         ModelNode model = context.getModelNode();
+
         if (model.isDefined()) {
             writer.writeAttribute(Attribute.DEFAULT_CACHE_CONTAINER.getLocalName(), model.require(ModelKeys.DEFAULT_CACHE_CONTAINER).asString());
+            // process cache container
             for (Property entry: model.get(ModelKeys.CACHE_CONTAINER).asPropertyList()) {
-                writer.writeStartElement(Element.CACHE_CONTAINER.getLocalName());
-                writer.writeAttribute(Attribute.NAME.getLocalName(), entry.getName());
+
+                String containerName = entry.getName();
                 ModelNode container = entry.getValue();
+
+                writer.writeStartElement(Element.CACHE_CONTAINER.getLocalName());
+                writer.writeAttribute(Attribute.NAME.getLocalName(), containerName);
                 this.writeRequired(writer, Attribute.DEFAULT_CACHE, container, ModelKeys.DEFAULT_CACHE);
                 this.writeOptional(writer, Attribute.JNDI_NAME, container, ModelKeys.JNDI_NAME);
                 this.writeOptional(writer, Attribute.LISTENER_EXECUTOR, container, ModelKeys.LISTENER_EXECUTOR);
@@ -809,128 +848,207 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
 
                 if (container.hasDefined(ModelKeys.TRANSPORT)) {
                     writer.writeStartElement(Element.TRANSPORT.getLocalName());
-                    ModelNode transport = container.get(ModelKeys.TRANSPORT);
-                    this.writeOptional(writer, Attribute.STACK, transport, ModelKeys.STACK);
-                    this.writeOptional(writer, Attribute.EXECUTOR, transport, ModelKeys.EXECUTOR);
-                    this.writeOptional(writer, Attribute.LOCK_TIMEOUT, transport, ModelKeys.LOCK_TIMEOUT);
-                    this.writeOptional(writer, Attribute.SITE, transport, ModelKeys.SITE);
-                    this.writeOptional(writer, Attribute.RACK, transport, ModelKeys.RACK);
-                    this.writeOptional(writer, Attribute.MACHINE, transport, ModelKeys.MACHINE);
+                    this.writeOptionalFlattened(writer, Attribute.STACK, container, ModelKeys.STACK, ModelKeys.TRANSPORT);
+                    this.writeOptionalFlattened(writer, Attribute.EXECUTOR, container, ModelKeys.EXECUTOR, ModelKeys.TRANSPORT);
+                    this.writeOptionalFlattened(writer, Attribute.LOCK_TIMEOUT, container, ModelKeys.LOCK_TIMEOUT, ModelKeys.TRANSPORT);
+                    this.writeOptionalFlattened(writer, Attribute.SITE, container, ModelKeys.SITE, ModelKeys.TRANSPORT);
+                    this.writeOptionalFlattened(writer, Attribute.RACK, container, ModelKeys.RACK, ModelKeys.TRANSPORT);
+                    this.writeOptionalFlattened(writer, Attribute.MACHINE, container, ModelKeys.MACHINE, ModelKeys.TRANSPORT);
                     writer.writeEndElement();
                 }
 
-                for (ModelNode cache: container.get(ModelKeys.CACHE).asList()) {
-                    Configuration.CacheMode mode = Configuration.CacheMode.valueOf(cache.get(ModelKeys.MODE).asString());
-                    if (mode.isClustered()) {
-                        if (mode.isDistributed()) {
-                            writer.writeStartElement(Element.DISTRIBUTED_CACHE.getLocalName());
-                            this.writeOptional(writer, Attribute.OWNERS, cache, ModelKeys.OWNERS);
-                            this.writeOptional(writer, Attribute.VIRTUAL_NODES, cache, ModelKeys.VIRTUAL_NODES);
-                            this.writeOptional(writer, Attribute.L1_LIFESPAN, cache, ModelKeys.L1_LIFESPAN);
-                        } else if (mode.isInvalidation()) {
-                            writer.writeStartElement(Element.INVALIDATION_CACHE.getLocalName());
-                        } else {
-                            writer.writeStartElement(Element.REPLICATED_CACHE.getLocalName());
-                        }
-                        writer.writeAttribute(Attribute.MODE.getLocalName(), Mode.forCacheMode(mode).name());
-                        this.writeOptional(writer, Attribute.QUEUE_SIZE, cache, ModelKeys.QUEUE_SIZE);
-                        this.writeOptional(writer, Attribute.QUEUE_FLUSH_INTERVAL, cache, ModelKeys.QUEUE_FLUSH_INTERVAL);
-                        this.writeOptional(writer, Attribute.REMOTE_TIMEOUT, cache, ModelKeys.REMOTE_TIMEOUT);
-                    } else {
+                // process local-cache resources
+                ModelNode localCacheObject = model.get(ModelKeys.CACHE_CONTAINER, containerName, ModelKeys.LOCAL_CACHE) ;
+                if (localCacheObject.isDefined() && localCacheObject.getType() == ModelType.OBJECT) {
+                    for (Property cacheEntry : localCacheObject.asPropertyList()) {
+                        String cacheName = cacheEntry.getName();
+                        ModelNode cache = cacheEntry.getValue();
+
                         writer.writeStartElement(Element.LOCAL_CACHE.getLocalName());
-                    }
-                    this.writeRequired(writer, Attribute.NAME, cache, ModelKeys.NAME);
-                    this.writeOptional(writer, Attribute.START, cache, ModelKeys.START);
-                    this.writeOptional(writer, Attribute.BATCHING, cache, ModelKeys.BATCHING);
-                    this.writeOptional(writer, Attribute.INDEXING, cache, ModelKeys.INDEXING);
-                    if (cache.hasDefined(ModelKeys.LOCKING)) {
-                        writer.writeStartElement(Element.LOCKING.getLocalName());
-                        ModelNode locking = cache.get(ModelKeys.LOCKING);
-                        this.writeOptional(writer, Attribute.ISOLATION, locking, ModelKeys.ISOLATION);
-                        this.writeOptional(writer, Attribute.STRIPING, locking, ModelKeys.STRIPING);
-                        this.writeOptional(writer, Attribute.ACQUIRE_TIMEOUT, locking, ModelKeys.ACQUIRE_TIMEOUT);
-                        this.writeOptional(writer, Attribute.CONCURRENCY_LEVEL, locking, ModelKeys.CONCURRENCY_LEVEL);
+                        writeCacheAttributesAndElements(writer, cache, cacheName);
                         writer.writeEndElement();
                     }
+                }
 
-                    if (cache.hasDefined(ModelKeys.TRANSACTION)) {
-                        writer.writeStartElement(Element.TRANSACTION.getLocalName());
-                        ModelNode transaction = cache.get(ModelKeys.TRANSACTION);
-                        this.writeOptional(writer, Attribute.STOP_TIMEOUT, transaction, ModelKeys.STOP_TIMEOUT);
-                        this.writeOptional(writer, Attribute.MODE, transaction, ModelKeys.MODE);
-                        this.writeOptional(writer, Attribute.LOCKING, transaction, ModelKeys.LOCKING);
-                        this.writeOptional(writer, Attribute.EAGER_LOCKING, transaction, ModelKeys.EAGER_LOCKING);
+                // process invalidation-cache resources
+                ModelNode invalidationCacheObject = model.get(ModelKeys.CACHE_CONTAINER, containerName, ModelKeys.INVALIDATION_CACHE) ;
+                if (invalidationCacheObject.isDefined() && invalidationCacheObject.getType() == ModelType.OBJECT) {
+                    for (Property cacheEntry : invalidationCacheObject.asPropertyList()) {
+                        String cacheName = cacheEntry.getName();
+                        ModelNode cache = cacheEntry.getValue();
+
+                        writer.writeStartElement(Element.INVALIDATION_CACHE.getLocalName());
+                        writeClusteredCacheAttributes(writer, cache);
+                        writeCacheAttributesAndElements(writer, cache, cacheName);
                         writer.writeEndElement();
                     }
+                }
 
-                    if (cache.hasDefined(ModelKeys.EVICTION)) {
-                        writer.writeStartElement(Element.EVICTION.getLocalName());
-                        ModelNode eviction = cache.get(ModelKeys.EVICTION);
-                        this.writeOptional(writer, Attribute.STRATEGY, eviction, ModelKeys.STRATEGY);
-                        this.writeOptional(writer, Attribute.MAX_ENTRIES, eviction, ModelKeys.MAX_ENTRIES);
-                        writer.writeEndElement();
-                    }
+                // process replicated-cache resources
+                ModelNode replicatedCacheObject = model.get(ModelKeys.CACHE_CONTAINER, containerName, ModelKeys.REPLICATED_CACHE) ;
+                if (replicatedCacheObject.isDefined() && replicatedCacheObject.getType() == ModelType.OBJECT) {
+                    for (Property cacheEntry : replicatedCacheObject.asPropertyList()) {
+                        String cacheName = cacheEntry.getName();
+                        ModelNode cache = cacheEntry.getValue();
 
-                    if (cache.hasDefined(ModelKeys.EXPIRATION)) {
-                        writer.writeStartElement(Element.EXPIRATION.getLocalName());
-                        ModelNode expiration = cache.get(ModelKeys.EXPIRATION);
-                        this.writeOptional(writer, Attribute.MAX_IDLE, expiration, ModelKeys.MAX_IDLE);
-                        this.writeOptional(writer, Attribute.LIFESPAN, expiration, ModelKeys.LIFESPAN);
-                        this.writeOptional(writer, Attribute.INTERVAL, expiration, ModelKeys.INTERVAL);
-                        writer.writeEndElement();
-                    }
+                        writer.writeStartElement(Element.REPLICATED_CACHE.getLocalName());
 
-                    if (cache.hasDefined(ModelKeys.STORE)) {
-                        ModelNode store = cache.get(ModelKeys.STORE);
-                        if (store.hasDefined(ModelKeys.CLASS)) {
-                            writer.writeStartElement(Element.STORE.getLocalName());
-                            this.writeRequired(writer, Attribute.CLASS, store, ModelKeys.CLASS);
-                        } else {
-                            writer.writeStartElement(Element.FILE_STORE.getLocalName());
-                            this.writeOptional(writer, Attribute.RELATIVE_TO, store, ModelKeys.RELATIVE_TO);
-                            this.writeOptional(writer, Attribute.PATH, store, ModelKeys.PATH);
-                        }
-                        this.writeOptional(writer, Attribute.SHARED, store, ModelKeys.SHARED);
-                        this.writeOptional(writer, Attribute.PRELOAD, store, ModelKeys.PRELOAD);
-                        this.writeOptional(writer, Attribute.PASSIVATION, store, ModelKeys.PASSIVATION);
-                        this.writeOptional(writer, Attribute.FETCH_STATE, store, ModelKeys.FETCH_STATE);
-                        this.writeOptional(writer, Attribute.PURGE, store, ModelKeys.PURGE);
-                        this.writeOptional(writer, Attribute.SINGLETON, store, ModelKeys.SINGLETON);
-                        if (store.hasDefined(ModelKeys.PROPERTY)) {
-                            for (Property property: store.get(ModelKeys.PROPERTY).asPropertyList()) {
-                                writer.writeStartElement(Element.PROPERTY.getLocalName());
-                                writer.writeAttribute(Attribute.NAME.getLocalName(), property.getName());
-                                writer.writeCharacters(property.getValue().asString());
-                                writer.writeEndElement();
-                            }
+                        writeClusteredCacheAttributes(writer, cache);
+                        writeCacheAttributesAndElements(writer, cache, cacheName);
+
+                        // write replicated cache state transfer element
+                        if (cache.hasDefined(ModelKeys.STATE_TRANSFER)) {
+                            writer.writeStartElement(Element.STATE_TRANSFER.getLocalName());
+                            this.writeOptionalFlattened(writer, Attribute.ENABLED, cache, ModelKeys.ENABLED, ModelKeys.STATE_TRANSFER);
+                            this.writeOptionalFlattened(writer, Attribute.TIMEOUT, cache, ModelKeys.TIMEOUT, ModelKeys.STATE_TRANSFER);
+                            this.writeOptionalFlattened(writer, Attribute.FLUSH_TIMEOUT, cache, ModelKeys.FLUSH_TIMEOUT, ModelKeys.STATE_TRANSFER);
+                            writer.writeEndElement();
                         }
                         writer.writeEndElement();
                     }
+                }
 
-                    if (cache.hasDefined(ModelKeys.STATE_TRANSFER)) {
-                        ModelNode stateTransfer = cache.get(ModelKeys.STATE_TRANSFER);
-                        writer.writeStartElement(Element.STATE_TRANSFER.getLocalName());
-                        this.writeOptional(writer, Attribute.ENABLED, stateTransfer, ModelKeys.ENABLED);
-                        this.writeOptional(writer, Attribute.TIMEOUT, stateTransfer, ModelKeys.TIMEOUT);
-                        this.writeOptional(writer, Attribute.FLUSH_TIMEOUT, stateTransfer, ModelKeys.FLUSH_TIMEOUT);
+                    // process distributed-cache resources
+                ModelNode distributedCacheObject = model.get(ModelKeys.CACHE_CONTAINER, containerName, ModelKeys.DISTRIBUTED_CACHE);
+                if (distributedCacheObject.isDefined() && distributedCacheObject.getType() == ModelType.OBJECT) {
+                    for (Property cacheEntry : distributedCacheObject.asPropertyList()) {
+                        String cacheName = cacheEntry.getName();
+                        ModelNode cache = cacheEntry.getValue();
+
+                        writer.writeStartElement(Element.DISTRIBUTED_CACHE.getLocalName());
+
+                        // write distributed cache attributes
+                        this.writeOptional(writer, Attribute.OWNERS, cache, ModelKeys.OWNERS);
+                        this.writeOptional(writer, Attribute.VIRTUAL_NODES, cache, ModelKeys.VIRTUAL_NODES);
+                        this.writeOptional(writer, Attribute.L1_LIFESPAN, cache, ModelKeys.L1_LIFESPAN);
+                        // write clustered cache attributes
+                        writeClusteredCacheAttributes(writer, cache);
+                        writeCacheAttributesAndElements(writer, cache, cacheName);
+                        // write distributed cache rehashing element
+                        if (cache.hasDefined(ModelKeys.REHASHING)) {
+                            writer.writeStartElement(Element.REHASHING.getLocalName());
+                            this.writeOptionalFlattened(writer, Attribute.ENABLED, cache, ModelKeys.ENABLED, ModelKeys.REHASHING);
+                            this.writeOptionalFlattened(writer, Attribute.TIMEOUT, cache, ModelKeys.TIMEOUT, ModelKeys.REHASHING);
+                            this.writeOptionalFlattened(writer, Attribute.FLUSH_TIMEOUT, cache, ModelKeys.FLUSH_TIMEOUT, ModelKeys.REHASHING);
+                            writer.writeEndElement();
+                        }
                         writer.writeEndElement();
                     }
-
-                    if (cache.hasDefined(ModelKeys.REHASHING)) {
-                        ModelNode rehashing = cache.get(ModelKeys.REHASHING);
-                        writer.writeStartElement(Element.REHASHING.getLocalName());
-                        this.writeOptional(writer, Attribute.ENABLED, rehashing, ModelKeys.ENABLED);
-                        this.writeOptional(writer, Attribute.TIMEOUT, rehashing, ModelKeys.TIMEOUT);
-                        writer.writeEndElement();
-                    }
-
-                    writer.writeEndElement();
                 }
 
                 writer.writeEndElement();
             }
         }
         writer.writeEndElement();
+    }
+
+    private void writeCacheAttributesAndElements(XMLExtendedStreamWriter writer, ModelNode cache, String cacheName) throws XMLStreamException {
+
+        writer.writeAttribute(Attribute.NAME.getLocalName(), cacheName);
+
+        this.writeOptional(writer, Attribute.START, cache, ModelKeys.START);
+        this.writeOptional(writer, Attribute.BATCHING, cache, ModelKeys.BATCHING);
+        this.writeOptional(writer, Attribute.INDEXING, cache, ModelKeys.INDEXING);
+
+        if (cache.hasDefined(ModelKeys.LOCKING)) {
+            writer.writeStartElement(Element.LOCKING.getLocalName());
+            this.writeOptionalFlattened(writer, Attribute.ISOLATION, cache, ModelKeys.ISOLATION, ModelKeys.LOCKING);
+            this.writeOptionalFlattened(writer, Attribute.STRIPING, cache, ModelKeys.STRIPING, ModelKeys.LOCKING);
+            this.writeOptionalFlattened(writer, Attribute.ACQUIRE_TIMEOUT, cache, ModelKeys.ACQUIRE_TIMEOUT, ModelKeys.LOCKING);
+            this.writeOptionalFlattened(writer, Attribute.CONCURRENCY_LEVEL, cache, ModelKeys.CONCURRENCY_LEVEL, ModelKeys.LOCKING);
+            writer.writeEndElement();
+        }
+
+        if (cache.hasDefined(ModelKeys.TRANSACTION)) {
+            writer.writeStartElement(Element.TRANSACTION.getLocalName());
+           this.writeOptionalFlattened(writer, Attribute.STOP_TIMEOUT, cache, ModelKeys.STOP_TIMEOUT, ModelKeys.TRANSACTION);
+            this.writeOptionalFlattened(writer, Attribute.MODE, cache, ModelKeys.MODE, ModelKeys.TRANSACTION);
+            this.writeOptionalFlattened(writer, Attribute.LOCKING, cache, ModelKeys.LOCKING, ModelKeys.TRANSACTION);
+            this.writeOptionalFlattened(writer, Attribute.EAGER_LOCKING, cache, ModelKeys.EAGER_LOCKING, ModelKeys.TRANSACTION);
+            writer.writeEndElement();
+        }
+
+        if (cache.hasDefined(ModelKeys.EVICTION)) {
+            writer.writeStartElement(Element.EVICTION.getLocalName());
+            this.writeOptionalFlattened(writer, Attribute.STRATEGY, cache, ModelKeys.STRATEGY, ModelKeys.EVICTION);
+            this.writeOptionalFlattened(writer, Attribute.MAX_ENTRIES, cache, ModelKeys.MAX_ENTRIES, ModelKeys.EVICTION);
+            writer.writeEndElement();
+        }
+
+        if (cache.hasDefined(ModelKeys.EXPIRATION)) {
+            writer.writeStartElement(Element.EXPIRATION.getLocalName());
+            this.writeOptionalFlattened(writer, Attribute.MAX_IDLE, cache, ModelKeys.MAX_IDLE, ModelKeys.EXPIRATION);
+            this.writeOptionalFlattened(writer, Attribute.LIFESPAN, cache, ModelKeys.LIFESPAN, ModelKeys.EXPIRATION);
+            this.writeOptionalFlattened(writer, Attribute.INTERVAL, cache, ModelKeys.INTERVAL, ModelKeys.EXPIRATION);
+            writer.writeEndElement();
+        }
+
+        // write store element
+        if (cache.hasDefined(ModelKeys.STORE)) {
+            if (cache.hasDefined(flatten(ModelKeys.STORE, ModelKeys.CLASS))) {
+                writer.writeStartElement(Element.STORE.getLocalName());
+                this.writeRequiredFlattened(writer, Attribute.CLASS, cache, ModelKeys.CLASS, ModelKeys.STORE);
+            }
+            this.writeOptionalFlattened(writer, Attribute.SHARED, cache, ModelKeys.SHARED, ModelKeys.STORE);
+            this.writeOptionalFlattened(writer, Attribute.PRELOAD, cache, ModelKeys.PRELOAD, ModelKeys.STORE);
+            this.writeOptionalFlattened(writer, Attribute.PASSIVATION, cache, ModelKeys.PASSIVATION, ModelKeys.STORE);
+            this.writeOptionalFlattened(writer, Attribute.FETCH_STATE, cache, ModelKeys.FETCH_STATE, ModelKeys.STORE);
+            this.writeOptionalFlattened(writer, Attribute.PURGE, cache, ModelKeys.PURGE, ModelKeys.STORE);
+            this.writeOptionalFlattened(writer, Attribute.SINGLETON, cache, ModelKeys.SINGLETON, ModelKeys.STORE);
+
+            // we now store store properties in the model as before, but add handler works differently
+            if (cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES))) {
+
+                for (Property property: cache.get(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)).asPropertyList()) {
+                    try {
+                    writer.writeStartElement(Element.PROPERTY.getLocalName());
+                    writer.writeAttribute(Attribute.NAME.getLocalName(), property.getName());
+                    writer.writeCharacters(property.getValue().asString());
+                    writer.writeEndElement();
+                    }
+                    catch (Exception e) {
+                        System.out.println("Printing stack trace");
+                        e.printStackTrace();
+                    }
+                }
+            }
+            writer.writeEndElement();
+        }
+
+        // write file-store element
+        if (cache.hasDefined(ModelKeys.FILE_STORE)) {
+            writer.writeStartElement(Element.FILE_STORE.getLocalName());
+            this.writeOptionalFlattened(writer, Attribute.RELATIVE_TO, cache, ModelKeys.RELATIVE_TO, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.PATH, cache, ModelKeys.PATH, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.SHARED, cache, ModelKeys.SHARED, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.PRELOAD, cache, ModelKeys.PRELOAD, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.PASSIVATION, cache, ModelKeys.PASSIVATION, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.FETCH_STATE, cache, ModelKeys.FETCH_STATE, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.PURGE, cache, ModelKeys.PURGE, ModelKeys.FILE_STORE);
+            this.writeOptionalFlattened(writer, Attribute.SINGLETON, cache, ModelKeys.SINGLETON, ModelKeys.FILE_STORE);
+            // we now store store properties in the model as before, but add handler works differently
+            if (cache.hasDefined(flatten(ModelKeys.FILE_STORE, ModelKeys.PROPERTIES))) {
+                for (Property property: cache.get(ModelKeys.PROPERTY).asPropertyList()) {
+                    writer.writeStartElement(Element.PROPERTY.getLocalName());
+                    writer.writeAttribute(Attribute.NAME.getLocalName(), property.getName());
+                    writer.writeCharacters(property.getValue().asString());
+                    writer.writeEndElement();
+                }
+            }
+           writer.writeEndElement();
+        }
+
+
+    }
+
+    private void writeClusteredCacheAttributes(XMLExtendedStreamWriter writer, ModelNode cache) throws XMLStreamException {
+
+        Configuration.CacheMode mode = Configuration.CacheMode.valueOf(cache.get(ModelKeys.MODE).asString());
+
+        writer.writeAttribute(Attribute.MODE.getLocalName(), Mode.forCacheMode(mode).name());
+        this.writeOptional(writer, Attribute.QUEUE_SIZE, cache, ModelKeys.QUEUE_SIZE);
+        this.writeOptional(writer, Attribute.QUEUE_FLUSH_INTERVAL, cache, ModelKeys.QUEUE_FLUSH_INTERVAL);
+        this.writeOptional(writer, Attribute.REMOTE_TIMEOUT, cache, ModelKeys.REMOTE_TIMEOUT);
     }
 
     private void writeOptional(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode model, String key) throws XMLStreamException {
@@ -941,6 +1059,20 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
 
     private void writeRequired(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode model, String key) throws XMLStreamException {
         writer.writeAttribute(attribute.getLocalName(), model.require(key).asString());
+    }
+
+    private void writeOptionalFlattened(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode model, String key, String group) throws XMLStreamException {
+        if (model.hasDefined(flatten(group, key))) {
+            writer.writeAttribute(attribute.getLocalName(), model.get(flatten(group, key)).asString());
+        }
+    }
+
+    private void writeRequiredFlattened(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode model, String key, String group) throws XMLStreamException {
+        writer.writeAttribute(attribute.getLocalName(), model.require(flatten(group, key)).asString());
+    }
+
+    private String flatten(String group, String key) {
+        return group + "." + key ;
     }
 
 }

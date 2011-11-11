@@ -66,6 +66,7 @@ public class ModelKeys {
     static final String PATH = "path";
     static final String PRELOAD = "preload";
     static final String PROPERTY = "property";
+    static final String PROPERTIES = "properties";
     static final String PURGE = "purge";
     static final String QUEUE_FLUSH_INTERVAL = "queue-flush-interval";
     static final String QUEUE_SIZE = "queue-size";

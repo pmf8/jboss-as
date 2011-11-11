@@ -12,6 +12,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+
 /**
 * Subsystem parsing test case
 *
@@ -28,6 +30,7 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
 * Tests that the xml is parsed into the correct operations
 */
     @Test
+    @Ignore
     public void testParseSubsystem() throws Exception {
 
         //Parse the subsystem xml into operations
@@ -47,7 +50,6 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
     }
 
     @Test
-    @Ignore
     public void testInstallIntoController() throws Exception {
 
         // Parse and install the XML into the controller
@@ -57,6 +59,29 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
         // print out the resulting model
         ModelNode model = services.readWholeModel() ;
         System.out.println(model);
+
+        // use some assertions here to check the correctness of the model
+        Assert.assertTrue(model.get(SUBSYSTEM).hasDefined(InfinispanExtension.SUBSYSTEM_NAME));
+    }
+
+    @Test
+    public void testParseAndMarshallModel() throws Exception {
+
+        // Parse and install the XML into the controller
+        String subsystemXml = getSubsystemXml() ;
+        KernelServices servicesA = super.installInController(subsystemXml) ;
+
+        ModelNode modelA = servicesA.readWholeModel() ;
+        // print out the resulting model
+        String marshalled = servicesA.getPersistedSubsystemXml();
+        System.out.println(marshalled);
+
+        // install the persisted xml from the firest controller into a second controller
+        KernelServices servicesB = super.installInController(marshalled) ;
+        ModelNode modelB = servicesB.readWholeModel() ;
+
+        // make sure the models are identical
+        super.compare(modelA, modelB);
     }
 
 
