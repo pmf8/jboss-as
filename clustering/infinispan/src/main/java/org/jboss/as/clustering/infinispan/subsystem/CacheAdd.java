@@ -106,9 +106,13 @@ public class CacheAdd extends AbstractAddStepHandler {
 
     protected void copyFlattenedElementsToModel(ModelNode operation, ModelNode model, String element, List<String> attributes) {
         for (String attribute : attributes) {
-            if (operation.hasDefined(element+"."+attribute))
-                model.get(element+"."+attribute).set(operation.get(element+"."+attribute)) ;
+            if (operation.hasDefined(flatten(element, attribute)))
+                model.get(flatten(element, attribute)).set(operation.get(flatten(element, attribute))) ;
         }
+    }
+
+    protected static String flatten(String group, String key) {
+        return group+"."+key;
     }
 
     // these properties come in the form {"\""name"\""="\""value"\"", ...}}
@@ -166,19 +170,18 @@ public class CacheAdd extends AbstractAddStepHandler {
 
         // set locking configuration
         if (cache.hasDefined(ModelKeys.LOCKING)) {
-            ModelNode locking = cache.get(ModelKeys.LOCKING);
             FluentConfiguration.LockingConfig fluentLocking = fluent.locking();
-            if (locking.hasDefined(ModelKeys.ISOLATION)) {
-                fluentLocking.isolationLevel(IsolationLevel.valueOf(locking.get(ModelKeys.ISOLATION).asString()));
+            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION))) {
+                fluentLocking.isolationLevel(IsolationLevel.valueOf(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION)).asString()));
             }
-            if (locking.hasDefined(ModelKeys.STRIPING)) {
-                fluentLocking.useLockStriping(locking.get(ModelKeys.STRIPING).asBoolean());
+            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING))) {
+                fluentLocking.useLockStriping(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING)).asBoolean());
             }
-            if (locking.hasDefined(ModelKeys.ACQUIRE_TIMEOUT)) {
-                fluentLocking.lockAcquisitionTimeout(locking.get(ModelKeys.ACQUIRE_TIMEOUT).asLong());
+            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT))) {
+                fluentLocking.lockAcquisitionTimeout(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT)).asLong());
             }
-            if (locking.hasDefined(ModelKeys.CONCURRENCY_LEVEL)) {
-                fluentLocking.concurrencyLevel(locking.get(ModelKeys.CONCURRENCY_LEVEL).asInt());
+            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL))) {
+                fluentLocking.concurrencyLevel(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL)).asInt());
             }
         }
 
@@ -187,18 +190,17 @@ public class CacheAdd extends AbstractAddStepHandler {
         TransactionMode txMode = TransactionMode.NON_XA;
         LockingMode lockingMode = LockingMode.OPTIMISTIC;
         if (cache.hasDefined(ModelKeys.TRANSACTION)) {
-            ModelNode transaction = cache.get(ModelKeys.TRANSACTION);
-            if (transaction.hasDefined(ModelKeys.STOP_TIMEOUT)) {
-                fluentTx.cacheStopTimeout(transaction.get(ModelKeys.STOP_TIMEOUT).asInt());
+            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT))) {
+                fluentTx.cacheStopTimeout(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT)).asInt());
             }
-            if (transaction.hasDefined(ModelKeys.MODE)) {
-                txMode = TransactionMode.valueOf(transaction.get(ModelKeys.MODE).asString());
+            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE))) {
+                txMode = TransactionMode.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE)).asString());
             }
-            if (transaction.hasDefined(ModelKeys.LOCKING)) {
-                lockingMode = LockingMode.valueOf(transaction.get(ModelKeys.LOCKING).asString());
+            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING))) {
+                lockingMode = LockingMode.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING)).asString());
             }
-            if (transaction.hasDefined(ModelKeys.EAGER_LOCKING)) {
-                EagerLocking eager = EagerLocking.valueOf(transaction.get(ModelKeys.EAGER_LOCKING).asString());
+            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING))) {
+                EagerLocking eager = EagerLocking.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING)).asString());
                 fluentTx.lockingMode(eager.isEnabled() ? LockingMode.PESSIMISTIC : LockingMode.OPTIMISTIC).eagerLockSingleNode(eager.isSingleOwner());
             }
         }
@@ -213,48 +215,46 @@ public class CacheAdd extends AbstractAddStepHandler {
 
         // set eviction configuration
         if (cache.hasDefined(ModelKeys.EVICTION)) {
-            ModelNode eviction = cache.get(ModelKeys.EVICTION);
             FluentConfiguration.EvictionConfig fluentEviction = fluent.eviction();
-            if (eviction.hasDefined(ModelKeys.STRATEGY)) {
-                fluentEviction.strategy(EvictionStrategy.valueOf(eviction.get(ModelKeys.STRATEGY).asString()));
+            if (cache.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY))) {
+                fluentEviction.strategy(EvictionStrategy.valueOf(cache.get(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY)).asString()));
             }
-            if (eviction.hasDefined(ModelKeys.MAX_ENTRIES)) {
-                fluentEviction.maxEntries(eviction.get(ModelKeys.MAX_ENTRIES).asInt());
+            if (cache.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES))) {
+                fluentEviction.maxEntries(cache.get(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES)).asInt());
             }
         }
 
         // set expiration configuration
         if (cache.hasDefined(ModelKeys.EXPIRATION)) {
-            ModelNode expiration = cache.get(ModelKeys.EXPIRATION);
             FluentConfiguration.ExpirationConfig fluentExpiration = fluent.expiration();
-            if (expiration.hasDefined(ModelKeys.MAX_IDLE)) {
-                fluentExpiration.maxIdle(expiration.get(ModelKeys.MAX_IDLE).asLong());
+            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE))) {
+                fluentExpiration.maxIdle(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE)).asLong());
             }
-            if (expiration.hasDefined(ModelKeys.LIFESPAN)) {
-                fluentExpiration.lifespan(expiration.get(ModelKeys.LIFESPAN).asLong());
+            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN))) {
+                fluentExpiration.lifespan(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN)).asLong());
             }
-            if (expiration.hasDefined(ModelKeys.INTERVAL)) {
-                fluentExpiration.wakeUpInterval(expiration.get(ModelKeys.INTERVAL).asLong());
+            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL))) {
+                fluentExpiration.wakeUpInterval(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL)).asLong());
             }
         }
 
         // set store configuration
         if (cache.hasDefined(ModelKeys.STORE)) {
-            ModelNode store = cache.get(ModelKeys.STORE);
             FluentConfiguration.LoadersConfig fluentStores = fluent.loaders();
-            fluentStores.shared(store.hasDefined(ModelKeys.SHARED) ? store.get(ModelKeys.SHARED).asBoolean() : false);
-            fluentStores.preload(store.hasDefined(ModelKeys.PRELOAD) ? store.get(ModelKeys.PRELOAD).asBoolean() : false);
-            fluentStores.passivation(store.hasDefined(ModelKeys.PASSIVATION) ? store.get(ModelKeys.PASSIVATION).asBoolean() : true);
+            fluentStores.shared(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SHARED)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.SHARED)).asBoolean() : false);
+            fluentStores.preload(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)).asBoolean() : false);
+            fluentStores.passivation(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)).asBoolean() : true);
 
             // FIX-ME
-            CacheStoreConfig storeConfig = buildCacheStore(cacheName, store, additionalDeps) ;
+            CacheStoreConfig storeConfig = buildCacheStore(cacheName, cache, additionalDeps) ;
 
-            storeConfig.singletonStore().enabled(store.hasDefined(ModelKeys.SINGLETON) ? store.get(ModelKeys.SINGLETON).asBoolean() : false);
-            storeConfig.fetchPersistentState(store.hasDefined(ModelKeys.FETCH_STATE) ? store.get(ModelKeys.FETCH_STATE).asBoolean() : true);
-            storeConfig.purgeOnStartup(store.hasDefined(ModelKeys.PURGE) ? store.get(ModelKeys.PURGE).asBoolean() : true);
-            if (store.hasDefined(ModelKeys.PROPERTY) && (storeConfig instanceof AbstractCacheStoreConfig)) {
+            storeConfig.singletonStore().enabled(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)).asBoolean() : false);
+            storeConfig.fetchPersistentState(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)).asBoolean() : true);
+            storeConfig.purgeOnStartup(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PURGE)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PURGE)).asBoolean() : true);
+            // properties
+            if (cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)) && (storeConfig instanceof AbstractCacheStoreConfig)) {
                 Properties properties = new Properties();
-                for (Property property : store.get(ModelKeys.PROPERTY).asPropertyList()) {
+                for (Property property : cache.get(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)).asPropertyList()) {
                     properties.setProperty(property.getName(), property.getValue().asString());
                 }
                 ((AbstractCacheStoreConfig) storeConfig).setProperties(properties);
@@ -268,9 +268,9 @@ public class CacheAdd extends AbstractAddStepHandler {
     /*
      * Problem here with dependency setting
      */
-    private CacheStoreConfig buildCacheStore(final String name, ModelNode store, List<AdditionalDependency> additionalDeps) {
-        if (store.hasDefined(ModelKeys.CLASS)) {
-            String className = store.get(ModelKeys.CLASS).asString();
+    private CacheStoreConfig buildCacheStore(final String name, ModelNode cache, List<AdditionalDependency> additionalDeps) {
+        if (cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.CLASS))) {
+            String className = cache.get(flatten(ModelKeys.STORE,ModelKeys.CLASS)).asString();
             try {
                 CacheStore cacheStore = Class.forName(className).asSubclass(CacheStore.class).newInstance();
                 return cacheStore.getConfigurationClass().asSubclass(CacheStoreConfig.class).newInstance();
@@ -280,13 +280,13 @@ public class CacheAdd extends AbstractAddStepHandler {
         }
         // If no class, we assume it's a file cache store
         FileCacheStoreConfig storeConfig = new FileCacheStoreConfig();
-        String relativeTo = store.hasDefined(ModelKeys.RELATIVE_TO) ? store.get(ModelKeys.RELATIVE_TO).asString() : ServerEnvironment.SERVER_DATA_DIR;
+        String relativeTo = cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.RELATIVE_TO)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.RELATIVE_TO)).asString() : ServerEnvironment.SERVER_DATA_DIR;
 
         // we will add this dependency when the builder is ready
         AdditionalDependency<String> dep = new AdditionalDependency<String>(AbstractPathService.pathNameOf(relativeTo), String.class, storeConfig.getRelativeToInjector()) ;
         additionalDeps.add(dep) ;
 
-        storeConfig.setPath(store.hasDefined(ModelKeys.PATH) ? store.get(ModelKeys.PATH).asString() : name);
+        storeConfig.setPath(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PATH)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PATH)).asString() : name);
         return storeConfig;
     }
 

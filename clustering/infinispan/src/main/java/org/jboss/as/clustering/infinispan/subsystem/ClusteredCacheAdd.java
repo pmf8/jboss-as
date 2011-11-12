@@ -63,6 +63,9 @@ public class ClusteredCacheAdd extends CacheAdd {
      */
     Configuration processClusteredCacheModelNode(ModelNode cache, Configuration configuration, List<AdditionalDependency> additionalDeps) {
 
+        // process cache attributes and elements
+        processCacheModelNode(cache, configuration, additionalDeps);
+
         // process clustered cache attributes and elements
         FluentConfiguration fluent = configuration.fluent();
         if (cache.hasDefined(ModelKeys.QUEUE_SIZE)) {

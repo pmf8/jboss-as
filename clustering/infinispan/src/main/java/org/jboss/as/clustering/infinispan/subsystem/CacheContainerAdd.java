@@ -22,28 +22,8 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
-import static org.jboss.as.clustering.infinispan.InfinispanMessages.MESSAGES;
-
-import java.util.*;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
-import javax.management.MBeanServer;
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
-
-import org.infinispan.Cache;
 import org.infinispan.config.Configuration;
-import org.infinispan.config.Configuration.CacheMode;
-import org.infinispan.config.FluentConfiguration;
-import org.infinispan.eviction.EvictionStrategy;
-import org.infinispan.loaders.AbstractCacheStoreConfig;
-import org.infinispan.loaders.CacheStore;
-import org.infinispan.loaders.CacheStoreConfig;
 import org.infinispan.manager.CacheContainer;
-import org.infinispan.transaction.LockingMode;
-import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.as.clustering.jgroups.ChannelFactory;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelFactoryService;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
@@ -58,12 +38,9 @@ import org.jboss.as.naming.ServiceBasedNamingStore;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.deployment.JndiName;
 import org.jboss.as.naming.service.BinderService;
-import org.jboss.as.server.ServerEnvironment;
-import org.jboss.as.server.services.path.AbstractPathService;
 import org.jboss.as.threads.ThreadsServices;
 import org.jboss.as.txn.service.TxnServices;
 import org.jboss.dmr.ModelNode;
-import org.jboss.dmr.Property;
 import org.jboss.msc.inject.Injector;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceBuilder.DependencyType;
@@ -74,6 +51,20 @@ import org.jboss.msc.value.InjectedValue;
 import org.jboss.msc.value.Value;
 import org.jboss.tm.XAResourceRecoveryRegistry;
 import org.jgroups.Channel;
+
+import javax.management.MBeanServer;
+import javax.transaction.TransactionManager;
+import javax.transaction.TransactionSynchronizationRegistry;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
  * @author Paul Ferraro
@@ -101,6 +92,9 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
     }
 
     private static void populate(ModelNode source, ModelNode target) {
+
+        System.out.println("source = " + source);
+
         target.get(ModelKeys.DEFAULT_CACHE).set(source.require(ModelKeys.DEFAULT_CACHE));
         if (source.hasDefined(ModelKeys.JNDI_NAME)) {
             target.get(ModelKeys.JNDI_NAME).set(source.get(ModelKeys.JNDI_NAME));
@@ -123,7 +117,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         if (source.hasDefined(ModelKeys.TRANSPORT)) {
             // indicate that a transport child is defined
             target.get(ModelKeys.TRANSPORT).set(source.get(ModelKeys.TRANSPORT));
-
             List<String> attributeList = Arrays.asList(ModelKeys.STACK, ModelKeys.EXECUTOR, ModelKeys.LOCK_TIMEOUT, ModelKeys.SITE, ModelKeys.RACK, ModelKeys.MACHINE);
             copyFlattenedElementsToModel(source, target, ModelKeys.TRANSPORT, attributeList);
         }
@@ -131,9 +124,13 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
 
     protected static void copyFlattenedElementsToModel(ModelNode operation, ModelNode model, String element, List<String> attributes) {
         for (String attribute : attributes) {
-            if (operation.hasDefined(element+"."+attribute))
-                model.get(element+"."+attribute).set(operation.get(element+"."+attribute)) ;
+            if (operation.hasDefined(flatten(element, attribute)))
+                model.get(flatten(element, attribute)).set(operation.get(flatten(element, attribute))) ;
         }
+    }
+
+    protected static String flatten(String group, String key) {
+        return group+"."+key;
     }
 
     protected void populateModel(ModelNode operation, ModelNode model) {
@@ -187,22 +184,21 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
             Transport transportConfig = new Transport();
             String stack = null;
             if (operation.hasDefined(ModelKeys.TRANSPORT)) {
-                ModelNode transport = operation.get(ModelKeys.TRANSPORT);
-                if (transport.hasDefined(ModelKeys.STACK)) {
-                    stack = transport.get(ModelKeys.STACK).asString();
+                if (operation.hasDefined(flatten(ModelKeys.TRANSPORT,ModelKeys.STACK))) {
+                    stack = operation.get(flatten(ModelKeys.TRANSPORT,ModelKeys.STACK)).asString();
                 }
-                addExecutorDependency(builder, transport, ModelKeys.EXECUTOR, transportConfig.getExecutorInjector());
-                if (transport.hasDefined(ModelKeys.LOCK_TIMEOUT)) {
-                    transportConfig.setLockTimeout(transport.get(ModelKeys.LOCK_TIMEOUT).asLong());
+                addExecutorDependency(builder, operation, flatten(ModelKeys.TRANSPORT,ModelKeys.EXECUTOR), transportConfig.getExecutorInjector());
+                if (operation.hasDefined(flatten(ModelKeys.TRANSPORT,ModelKeys.LOCK_TIMEOUT))) {
+                    transportConfig.setLockTimeout(operation.get(flatten(ModelKeys.TRANSPORT, ModelKeys.LOCK_TIMEOUT)).asLong());
                 }
-                if (transport.hasDefined(ModelKeys.SITE)) {
-                    transportConfig.setSite(transport.get(ModelKeys.SITE).asString());
+                if (operation.hasDefined(flatten(ModelKeys.TRANSPORT,ModelKeys.SITE))) {
+                    transportConfig.setSite(operation.get(flatten(ModelKeys.TRANSPORT, ModelKeys.SITE)).asString());
                 }
-                if (transport.hasDefined(ModelKeys.RACK)) {
-                    transportConfig.setRack(transport.get(ModelKeys.RACK).asString());
+                if (operation.hasDefined(flatten(ModelKeys.TRANSPORT,ModelKeys.RACK))) {
+                    transportConfig.setRack(operation.get(flatten(ModelKeys.TRANSPORT, ModelKeys.RACK)).asString());
                 }
-                if (transport.hasDefined(ModelKeys.MACHINE)) {
-                    transportConfig.setMachine(transport.get(ModelKeys.MACHINE).asString());
+                if (operation.hasDefined(flatten(ModelKeys.TRANSPORT,ModelKeys.MACHINE))) {
+                    transportConfig.setMachine(operation.get(flatten(ModelKeys.TRANSPORT,ModelKeys.MACHINE)).asString());
                 }
             }
             builder.addDependency(ChannelService.getServiceName(name), Channel.class, transportConfig.getChannelInjector());

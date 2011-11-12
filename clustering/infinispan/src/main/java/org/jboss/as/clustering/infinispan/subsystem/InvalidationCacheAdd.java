@@ -1,10 +1,25 @@
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import org.infinispan.Cache;
+import org.infinispan.config.Configuration;
+import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.ServiceVerificationHandler;
 import org.jboss.as.controller.descriptions.DescriptionProvider;
+import org.jboss.as.controller.registry.Resource;
+import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
+import org.jboss.msc.service.ServiceBuilder;
+import org.jboss.msc.service.ServiceController;
+import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.ServiceTarget;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
+
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
  * @author Richard Achmatowicz (c) 2011 Red Hat Inc.
@@ -19,14 +34,13 @@ public class InvalidationCacheAdd extends ClusteredCacheAdd implements Descripti
         populateClusteredCacheModelNode(operation, model);
     }
 
-    /*
     @Override
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model, ServiceVerificationHandler verificationHandler, List<ServiceController<?>> newControllers) throws OperationFailedException {
 
         // create a Configuration holding the operation data
         Configuration overrides = new Configuration() ;
         // create a list for dependencies which may need to be added during processing
-        List<CacheAdd.AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>() ;
+        List<AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>() ;
 
         processClusteredCacheModelNode(operation, overrides, additionalDeps) ;
 
@@ -84,7 +98,6 @@ public class InvalidationCacheAdd extends ClusteredCacheAdd implements Descripti
 
         newControllers.add(builder.install());
     }
-    */
 
     public ModelNode getModelDescription(Locale locale) {
         return InfinispanDescriptions.getInvalidationCacheAddDescription(locale);
