@@ -28,6 +28,7 @@ import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
+import org.junit.Ignore;
 
 import java.util.List;
 
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.when;
 /**
  * @author Paul Ferraro
  */
+@Ignore
 public class InfinispanExtensionTest extends AbstractExtensionTest {
 
     public InfinispanExtensionTest() {

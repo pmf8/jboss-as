@@ -93,8 +93,6 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
 
     private static void populate(ModelNode source, ModelNode target) {
 
-        System.out.println("source = " + source);
-
         target.get(ModelKeys.DEFAULT_CACHE).set(source.require(ModelKeys.DEFAULT_CACHE));
         if (source.hasDefined(ModelKeys.JNDI_NAME)) {
             target.get(ModelKeys.JNDI_NAME).set(source.get(ModelKeys.JNDI_NAME));
@@ -169,6 +167,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         String jndiName = getContainerJNDIName(operation, name) ;
         final ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
 
+        // setup the naming service
         BinderService binder = new BinderService(bindInfo.getBindName());
         newControllers.add(target.addService(bindInfo.getBinderServiceName(), binder)
                 .addAliases(ContextNames.JAVA_CONTEXT_SERVICE_NAME.append(jndiName))
@@ -177,7 +176,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
                 .setInitialMode(ServiceController.Mode.ON_DEMAND)
                 .install());
 
-        boolean requiresTransport = false;
+        boolean requiresTransport = true;
 
 
         if (requiresTransport) {
@@ -216,6 +215,9 @@ public class CacheContainerAdd extends AbstractAddStepHandler implements Descrip
         addScheduledExecutorDependency(builder, operation, ModelKeys.REPLICATION_QUEUE_EXECUTOR, config.getReplicationQueueExecutorInjector());
 
         newControllers.add(builder.install());
+
+        System.out.println("cache container " + name + " installed");
+
     }
 
     /**

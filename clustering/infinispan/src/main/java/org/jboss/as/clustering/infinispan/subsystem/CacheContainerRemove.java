@@ -28,6 +28,7 @@ import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
 
 /**
@@ -43,7 +44,16 @@ public class CacheContainerRemove extends AbstractRemoveStepHandler implements D
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) {
         final PathAddress address = PathAddress.pathAddress(operation.get(ModelDescriptionConstants.OP_ADDR));
         final String name = address.getLastElement().getValue();
+
+        // remove the JNDI name
+        String jndiName = CacheContainerAdd.getContainerJNDIName(operation, name) ;
+        final ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
+        context.removeService(bindInfo.getBinderServiceName());
+
+        // now remove the service
         context.removeService(EmbeddedCacheManagerService.getServiceName(name));
+
+        System.out.println("cache container " + name + " removed");
     }
 
     protected void recoverServices(OperationContext context, ModelNode operation, ModelNode model) {

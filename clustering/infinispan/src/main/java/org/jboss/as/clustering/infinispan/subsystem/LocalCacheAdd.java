@@ -44,7 +44,7 @@ public class LocalCacheAdd extends CacheAdd implements DescriptionProvider {
         // create a list for dependencies which may need to be added during processing
         List<AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>() ;
 
-        processCacheModelNode(operation, overrides, additionalDeps) ;
+        processCacheModelNode(model, overrides, additionalDeps) ;
 
         // this stuff can go into a common routine in CacheAdd
 
@@ -99,6 +99,8 @@ public class LocalCacheAdd extends CacheAdd implements DescriptionProvider {
         }
 
         newControllers.add(builder.install());
+
+        System.out.println("cache " + cacheName + " installed for container " + containerName);
 
         // blend in the configuration data from Defaults
         // register the cache definition

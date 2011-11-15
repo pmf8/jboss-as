@@ -197,7 +197,7 @@ public class InfinispanDescriptions {
         // mode (ASYNC|SYNC)
         description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.MODE, ModelDescriptionConstants.TYPE).set(ModelType.STRING);
         description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.MODE, ModelDescriptionConstants.DESCRIPTION).set(resources.getString(keyPrefix + ".mode"));
-        description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.MODE, ModelDescriptionConstants.REQUIRED).set(true);
+        description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.MODE, ModelDescriptionConstants.REQUIRED).set(false);
         // start (EAGER|LAZY)
         description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.START, ModelDescriptionConstants.TYPE).set(ModelType.STRING);
         description.get(ModelDescriptionConstants.REQUEST_PROPERTIES, ModelKeys.START, ModelDescriptionConstants.DESCRIPTION).set(resources.getString(keyPrefix + ".start"));

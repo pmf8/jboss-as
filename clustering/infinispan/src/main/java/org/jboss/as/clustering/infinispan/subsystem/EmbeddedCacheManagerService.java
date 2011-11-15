@@ -176,6 +176,9 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
         }
         this.container = new DefaultEmbeddedCacheManager(manager, this.configuration.getDefaultCache());
         this.container.start();
+
+        System.out.println("cache manager started");
+
     }
 
     /**
@@ -186,6 +189,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
     public void stop(StopContext context) {
         this.container.stop();
         this.container = null;
+        System.out.println("cache manager stopped");
     }
 
     @CacheStarted

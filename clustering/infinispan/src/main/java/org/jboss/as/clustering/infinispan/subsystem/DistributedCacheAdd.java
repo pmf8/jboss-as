@@ -60,7 +60,7 @@ public class DistributedCacheAdd extends ClusteredCacheAdd implements Descriptio
         // create a list for dependencies which may need to be added during processing
         List<AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>() ;
 
-        processDistributedCacheModelNode(operation, overrides, additionalDeps) ;
+        processDistributedCacheModelNode(model, overrides, additionalDeps) ;
 
         // this stuff can go into a common routine in CacheAdd
 

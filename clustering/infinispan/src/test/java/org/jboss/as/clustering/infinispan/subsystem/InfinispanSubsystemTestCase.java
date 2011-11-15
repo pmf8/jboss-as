@@ -29,7 +29,7 @@ import org.junit.Ignore;
  *
  * @author <a href="kabir.khan@jboss.com">Kabir Khan</a>
  */
-//@Ignore
+@Ignore
 public class InfinispanSubsystemTestCase extends ClusteringSubsystemTest {
 
     public InfinispanSubsystemTestCase() {

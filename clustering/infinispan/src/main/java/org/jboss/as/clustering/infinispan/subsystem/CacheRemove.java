@@ -27,6 +27,9 @@ public class CacheRemove extends AbstractRemoveStepHandler implements Descriptio
 
         // remove the CacheService instance
         context.removeService(EmbeddedCacheManagerService.getServiceName(containerName).append(cacheName));
+
+        System.out.println("cache " + cacheName + " removed for container " + containerName);
+
     }
 
     protected void recoverServices(OperationContext context, ModelNode operation, ModelNode model) {

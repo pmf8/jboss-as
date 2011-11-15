@@ -42,7 +42,8 @@ public class InvalidationCacheAdd extends ClusteredCacheAdd implements Descripti
         // create a list for dependencies which may need to be added during processing
         List<AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>() ;
 
-        processClusteredCacheModelNode(operation, overrides, additionalDeps) ;
+        // pass in the model, not the operation
+        processClusteredCacheModelNode(model, overrides, additionalDeps) ;
 
         // this stuff can go into a common routine in CacheAdd
 

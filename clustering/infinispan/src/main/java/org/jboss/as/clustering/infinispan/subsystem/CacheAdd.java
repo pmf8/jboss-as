@@ -12,6 +12,7 @@ import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.ServiceVerificationHandler;
+import org.jboss.as.controller.PathAddress;
 import org.jboss.as.server.ServerEnvironment;
 import org.jboss.as.server.services.path.AbstractPathService;
 import org.jboss.dmr.ModelNode;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static org.jboss.as.clustering.infinispan.InfinispanMessages.MESSAGES;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
  * Base class for cache add handlers
@@ -53,6 +55,19 @@ public class CacheAdd extends AbstractAddStepHandler {
     void populateCacheModelNode(ModelNode operation, ModelNode model) throws OperationFailedException {
 
         // populate attributes
+
+        // the name attribute is required, and can always be found from the operation address
+        PathAddress cacheAddress = PathAddress.pathAddress(operation.get(OP_ADDR));
+        String cacheName = cacheAddress.getLastElement().getValue();
+        model.get(ModelKeys.NAME).set(cacheName);
+
+        // if the cache type is local-cache, set the MODE (type CacheMode) here as
+        // it will not be further modified
+        String cacheType = cacheAddress.getLastElement().getKey();
+        if (cacheType.equals((ModelKeys.LOCAL_CACHE))) {
+            model.get(ModelKeys.CACHE_MODE).set(Configuration.CacheMode.LOCAL.name());
+        }
+
         if (operation.hasDefined(ModelKeys.START)) {
             model.get(ModelKeys.START).set(operation.get(ModelKeys.START)) ;
         }
@@ -139,49 +154,49 @@ public class CacheAdd extends AbstractAddStepHandler {
     /**
      * Create a Configuration object initialized from the data in the operation.
      *
-     * @param cache data representing cache configuration
+     * @param model data representing cache configuration
      * @param configuration Configuration object to add data to
      * @return initialised Configuration object
      */
-    Configuration processCacheModelNode(ModelNode cache, Configuration configuration, List<AdditionalDependency> additionalDeps) {
+    Configuration processCacheModelNode(ModelNode model, Configuration configuration, List<AdditionalDependency> additionalDeps) {
 
-        String cacheName = cache.require(ModelKeys.NAME).asString();
+        String cacheName = model.require(ModelKeys.NAME).asString();
 
         configuration.setClassLoader(this.getClass().getClassLoader());
         FluentConfiguration fluent = configuration.fluent();
 
         // set cache mode
-        Configuration.CacheMode mode = Configuration.CacheMode.valueOf(cache.require(ModelKeys.MODE).asString());
+        Configuration.CacheMode mode = Configuration.CacheMode.valueOf(model.require(ModelKeys.CACHE_MODE).asString());
         fluent.mode(mode);
 
         // set batching batching configuration
-        if (cache.hasDefined(ModelKeys.BATCHING)) {
-            if (cache.get(ModelKeys.BATCHING).asBoolean()) {
+        if (model.hasDefined(ModelKeys.BATCHING)) {
+            if (model.get(ModelKeys.BATCHING).asBoolean()) {
                 fluent.invocationBatching();
             }
         }
         // set indexing configuration
-        if (cache.hasDefined(ModelKeys.INDEXING)) {
-            Indexing indexing = Indexing.valueOf(cache.get(ModelKeys.INDEXING).asString());
+        if (model.hasDefined(ModelKeys.INDEXING)) {
+            Indexing indexing = Indexing.valueOf(model.get(ModelKeys.INDEXING).asString());
             if (indexing.isEnabled()) {
                 fluent.indexing().indexLocalOnly(indexing.isLocalOnly());
             }
         }
 
         // set locking configuration
-        if (cache.hasDefined(ModelKeys.LOCKING)) {
+        if (model.hasDefined(ModelKeys.LOCKING)) {
             FluentConfiguration.LockingConfig fluentLocking = fluent.locking();
-            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION))) {
-                fluentLocking.isolationLevel(IsolationLevel.valueOf(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION)).asString()));
+            if (model.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION))) {
+                fluentLocking.isolationLevel(IsolationLevel.valueOf(model.get(flatten(ModelKeys.LOCKING,ModelKeys.ISOLATION)).asString()));
             }
-            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING))) {
-                fluentLocking.useLockStriping(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING)).asBoolean());
+            if (model.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING))) {
+                fluentLocking.useLockStriping(model.get(flatten(ModelKeys.LOCKING,ModelKeys.STRIPING)).asBoolean());
             }
-            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT))) {
-                fluentLocking.lockAcquisitionTimeout(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT)).asLong());
+            if (model.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT))) {
+                fluentLocking.lockAcquisitionTimeout(model.get(flatten(ModelKeys.LOCKING,ModelKeys.ACQUIRE_TIMEOUT)).asLong());
             }
-            if (cache.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL))) {
-                fluentLocking.concurrencyLevel(cache.get(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL)).asInt());
+            if (model.hasDefined(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL))) {
+                fluentLocking.concurrencyLevel(model.get(flatten(ModelKeys.LOCKING,ModelKeys.CONCURRENCY_LEVEL)).asInt());
             }
         }
 
@@ -189,18 +204,18 @@ public class CacheAdd extends AbstractAddStepHandler {
         FluentConfiguration.TransactionConfig fluentTx = fluent.transaction();
         TransactionMode txMode = TransactionMode.NON_XA;
         LockingMode lockingMode = LockingMode.OPTIMISTIC;
-        if (cache.hasDefined(ModelKeys.TRANSACTION)) {
-            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT))) {
-                fluentTx.cacheStopTimeout(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT)).asInt());
+        if (model.hasDefined(ModelKeys.TRANSACTION)) {
+            if (model.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT))) {
+                fluentTx.cacheStopTimeout(model.get(flatten(ModelKeys.TRANSACTION,ModelKeys.STOP_TIMEOUT)).asInt());
             }
-            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE))) {
-                txMode = TransactionMode.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE)).asString());
+            if (model.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE))) {
+                txMode = TransactionMode.valueOf(model.get(flatten(ModelKeys.TRANSACTION,ModelKeys.MODE)).asString());
             }
-            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING))) {
-                lockingMode = LockingMode.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING)).asString());
+            if (model.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING))) {
+                lockingMode = LockingMode.valueOf(model.get(flatten(ModelKeys.TRANSACTION,ModelKeys.LOCKING)).asString());
             }
-            if (cache.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING))) {
-                EagerLocking eager = EagerLocking.valueOf(cache.get(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING)).asString());
+            if (model.hasDefined(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING))) {
+                EagerLocking eager = EagerLocking.valueOf(model.get(flatten(ModelKeys.TRANSACTION,ModelKeys.EAGER_LOCKING)).asString());
                 fluentTx.lockingMode(eager.isEnabled() ? LockingMode.PESSIMISTIC : LockingMode.OPTIMISTIC).eagerLockSingleNode(eager.isSingleOwner());
             }
         }
@@ -214,47 +229,47 @@ public class CacheAdd extends AbstractAddStepHandler {
         }
 
         // set eviction configuration
-        if (cache.hasDefined(ModelKeys.EVICTION)) {
+        if (model.hasDefined(ModelKeys.EVICTION)) {
             FluentConfiguration.EvictionConfig fluentEviction = fluent.eviction();
-            if (cache.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY))) {
-                fluentEviction.strategy(EvictionStrategy.valueOf(cache.get(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY)).asString()));
+            if (model.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY))) {
+                fluentEviction.strategy(EvictionStrategy.valueOf(model.get(flatten(ModelKeys.EVICTION,ModelKeys.STRATEGY)).asString()));
             }
-            if (cache.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES))) {
-                fluentEviction.maxEntries(cache.get(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES)).asInt());
+            if (model.hasDefined(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES))) {
+                fluentEviction.maxEntries(model.get(flatten(ModelKeys.EVICTION,ModelKeys.MAX_ENTRIES)).asInt());
             }
         }
 
         // set expiration configuration
-        if (cache.hasDefined(ModelKeys.EXPIRATION)) {
+        if (model.hasDefined(ModelKeys.EXPIRATION)) {
             FluentConfiguration.ExpirationConfig fluentExpiration = fluent.expiration();
-            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE))) {
-                fluentExpiration.maxIdle(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE)).asLong());
+            if (model.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE))) {
+                fluentExpiration.maxIdle(model.get(flatten(ModelKeys.EXPIRATION,ModelKeys.MAX_IDLE)).asLong());
             }
-            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN))) {
-                fluentExpiration.lifespan(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN)).asLong());
+            if (model.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN))) {
+                fluentExpiration.lifespan(model.get(flatten(ModelKeys.EXPIRATION,ModelKeys.LIFESPAN)).asLong());
             }
-            if (cache.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL))) {
-                fluentExpiration.wakeUpInterval(cache.get(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL)).asLong());
+            if (model.hasDefined(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL))) {
+                fluentExpiration.wakeUpInterval(model.get(flatten(ModelKeys.EXPIRATION,ModelKeys.INTERVAL)).asLong());
             }
         }
 
         // set store configuration
-        if (cache.hasDefined(ModelKeys.STORE)) {
+        if (model.hasDefined(ModelKeys.STORE)) {
             FluentConfiguration.LoadersConfig fluentStores = fluent.loaders();
-            fluentStores.shared(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SHARED)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.SHARED)).asBoolean() : false);
-            fluentStores.preload(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)).asBoolean() : false);
-            fluentStores.passivation(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)).asBoolean() : true);
+            fluentStores.shared(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SHARED)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.SHARED)).asBoolean() : false);
+            fluentStores.preload(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.PRELOAD)).asBoolean() : false);
+            fluentStores.passivation(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.PASSIVATION)).asBoolean() : true);
 
             // FIX-ME
-            CacheStoreConfig storeConfig = buildCacheStore(cacheName, cache, additionalDeps) ;
+            CacheStoreConfig storeConfig = buildCacheStore(cacheName, model, additionalDeps) ;
 
-            storeConfig.singletonStore().enabled(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)).asBoolean() : false);
-            storeConfig.fetchPersistentState(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)).asBoolean() : true);
-            storeConfig.purgeOnStartup(cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PURGE)) ? cache.get(flatten(ModelKeys.STORE,ModelKeys.PURGE)).asBoolean() : true);
+            storeConfig.singletonStore().enabled(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.SINGLETON)).asBoolean() : false);
+            storeConfig.fetchPersistentState(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.FETCH_STATE)).asBoolean() : true);
+            storeConfig.purgeOnStartup(model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PURGE)) ? model.get(flatten(ModelKeys.STORE,ModelKeys.PURGE)).asBoolean() : true);
             // properties
-            if (cache.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)) && (storeConfig instanceof AbstractCacheStoreConfig)) {
+            if (model.hasDefined(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)) && (storeConfig instanceof AbstractCacheStoreConfig)) {
                 Properties properties = new Properties();
-                for (Property property : cache.get(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)).asPropertyList()) {
+                for (Property property : model.get(flatten(ModelKeys.STORE,ModelKeys.PROPERTIES)).asPropertyList()) {
                     properties.setProperty(property.getName(), property.getValue().asString());
                 }
                 ((AbstractCacheStoreConfig) storeConfig).setProperties(properties);

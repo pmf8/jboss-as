@@ -51,7 +51,8 @@ public class ReplicatedCacheAdd extends ClusteredCacheAdd implements Description
         // create a list for dependencies which may need to be added during processing
         List<CacheAdd.AdditionalDependency> additionalDeps = new LinkedList<AdditionalDependency>();
 
-        processReplicatedCacheModelNode(operation, overrides, additionalDeps);
+        // TODO
+        processReplicatedCacheModelNode(model, overrides, additionalDeps);
 
         // this stuff can go into a common routine in CacheAdd
 

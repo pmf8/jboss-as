@@ -27,10 +27,9 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
         super(InfinispanExtension.SUBSYSTEM_NAME, new InfinispanExtension());
     }
     /**
-* Tests that the xml is parsed into the correct operations
-*/
+      * Tests that the xml is parsed into the correct operations
+     */
     @Test
-    @Ignore
     public void testParseSubsystem() throws Exception {
 
         //Parse the subsystem xml into operations
@@ -46,10 +45,10 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
             ModelNode operation = operations.get(i) ;
             System.out.println(operation);
         }
-
     }
 
     @Test
+    @Ignore
     public void testInstallIntoController() throws Exception {
 
         // Parse and install the XML into the controller
@@ -71,12 +70,15 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
         String subsystemXml = getSubsystemXml() ;
         KernelServices servicesA = super.installInController(subsystemXml) ;
 
+        // list the names of the services which have been installed
+        System.out.println("service names = " + servicesA.getContainer().getServiceNames());
+
         ModelNode modelA = servicesA.readWholeModel() ;
         // print out the resulting model
         String marshalled = servicesA.getPersistedSubsystemXml();
-        System.out.println(marshalled);
+        System.out.println("marshalled XML = " + marshalled);
 
-        // install the persisted xml from the firest controller into a second controller
+        // install the persisted xml from the first controller into a second controller
         KernelServices servicesB = super.installInController(marshalled) ;
         ModelNode modelB = servicesB.readWholeModel() ;
 

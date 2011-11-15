@@ -110,6 +110,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
             switch (attribute) {
                 case NAME: {
                     name = value;
+                    // container.get(ModelKeys.NAME).set(value);
                     break;
                 }
                 case DEFAULT_CACHE: {
@@ -292,12 +293,16 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     private void parseClusteredCacheAttribute(XMLExtendedStreamReader reader, int index, Attribute attribute, String value, ModelNode cache, Configuration.CacheMode cacheMode) throws XMLStreamException {
         switch (attribute) {
             case MODE: {
+                /*
+                // move MODE processing into the ADD handlers as it is common to parsing and CLI
                 try {
                     Mode mode = Mode.valueOf(value);
-                    cache.get(ModelKeys.MODE).set(mode.apply(cacheMode).name());
+                    cache.get(ModelKeys.CACHE_MODE).set(mode.apply(cacheMode).name());
                 } catch (IllegalArgumentException e) {
                     throw ParseUtils.invalidAttributeValue(reader, index);
                 }
+                */
+                cache.get(ModelKeys.MODE).set(value);
                 break;
             }
             case QUEUE_SIZE: {
@@ -319,7 +324,6 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     }
 
     private void parseLocalCache(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
-        cache.get(ModelKeys.MODE).set(Configuration.CacheMode.LOCAL.name());
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
@@ -1043,7 +1047,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
 
     private void writeClusteredCacheAttributes(XMLExtendedStreamWriter writer, ModelNode cache) throws XMLStreamException {
 
-        Configuration.CacheMode mode = Configuration.CacheMode.valueOf(cache.get(ModelKeys.MODE).asString());
+        Configuration.CacheMode mode = Configuration.CacheMode.valueOf(cache.get(ModelKeys.CACHE_MODE).asString());
 
         writer.writeAttribute(Attribute.MODE.getLocalName(), Mode.forCacheMode(mode).name());
         this.writeOptional(writer, Attribute.QUEUE_SIZE, cache, ModelKeys.QUEUE_SIZE);
