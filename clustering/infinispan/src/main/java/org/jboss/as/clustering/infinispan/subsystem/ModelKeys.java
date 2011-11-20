@@ -77,6 +77,7 @@ public class ModelKeys {
     static final String REMOTE_TIMEOUT = "remote-timeout";
     static final String REPLICATED_CACHE = "replicated-cache";
     static final String REPLICATION_QUEUE_EXECUTOR = "replication-queue-executor";
+    static final String SEPARATOR = "-";
     static final String SHARED = "shared";
     static final String SINGLETON = "singleton";
     static final String SITE = "site";

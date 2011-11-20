@@ -35,6 +35,8 @@ import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * @author Paul Ferraro
  * @author Richard Achmatowicz (c) 2011 Red Hat Inc.
@@ -42,6 +44,7 @@ import org.jboss.msc.value.InjectedValue;
 public class CacheService<K, V> implements Service<Cache<K, V>> {
     private final InjectedValue<CacheContainer> container = new InjectedValue<CacheContainer>();
     private final InjectedValue<EmbeddedCacheManagerDefaults> defaults = new InjectedValue<EmbeddedCacheManagerDefaults>();
+    // private final InjectedValue<AtomicBoolean> transportRequired = new InjectedValue<AtomicBoolean>();
     private final String name;
     private final String template;
     private final Configuration overrides ;
@@ -56,6 +59,8 @@ public class CacheService<K, V> implements Service<Cache<K, V>> {
         ServiceBuilder<Cache<K,V>> builder = target.addService(containerName.append(this.name), this) ;
         builder.addDependency(containerName, CacheContainer.class, this.container) ;
         builder.addDependency(EmbeddedCacheManagerDefaultsService.SERVICE_NAME, EmbeddedCacheManagerDefaults.class, this.defaults);
+        // add dependency on transportRequired so we can indicate if we need a transport
+        // builder.addDependency(containerName.append("transportRequired"), AtomicBoolean.class, this.transportRequired);
         return builder ;
     }
 
@@ -111,6 +116,10 @@ public class CacheService<K, V> implements Service<Cache<K, V>> {
      */
     @Override
     public void stop(StopContext context) {
+
+        // have to be careful here as we are leaving a named configuration in the cache-container
+        // this may cause problems if the cache name is reused with a different cache type as the
+        // original cache definition will be takes as base config
         this.cache.stop();
     }
 }

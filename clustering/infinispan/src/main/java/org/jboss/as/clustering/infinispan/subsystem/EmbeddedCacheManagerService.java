@@ -24,6 +24,7 @@ package org.jboss.as.clustering.infinispan.subsystem;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.management.MBeanServer;
 import javax.transaction.TransactionManager;
@@ -49,6 +50,7 @@ import org.jboss.as.clustering.infinispan.ExecutorProvider;
 import org.jboss.as.clustering.infinispan.MBeanServerProvider;
 import org.jboss.as.clustering.infinispan.TransactionManagerProvider;
 import org.jboss.as.clustering.infinispan.TransactionSynchronizationRegistryProvider;
+import org.jboss.logging.Logger;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
@@ -56,6 +58,7 @@ import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 import org.jboss.tm.XAResourceRecovery;
 import org.jboss.tm.XAResourceRecoveryRegistry;
+import sun.rmi.runtime.Log;
 
 import static org.jboss.as.clustering.infinispan.InfinispanLogger.ROOT_LOGGER;
 
@@ -64,6 +67,8 @@ import static org.jboss.as.clustering.infinispan.InfinispanLogger.ROOT_LOGGER;
  */
 @Listener
 public class EmbeddedCacheManagerService implements Service<CacheContainer> {
+
+    private static final Logger log = Logger.getLogger(EmbeddedCacheManagerService.class.getPackage().getName());
     private static final ServiceName SERVICE_NAME = ServiceName.JBOSS.append(InfinispanExtension.SUBSYSTEM_NAME);
 
     public static ServiceName getServiceName(String name) {
@@ -71,7 +76,6 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
     }
 
     private final EmbeddedCacheManagerConfiguration configuration;
-
     private volatile CacheContainer container;
 
     public EmbeddedCacheManagerService(EmbeddedCacheManagerConfiguration configuration) {
@@ -95,9 +99,16 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
     public void start(StartContext context) throws StartException {
         EmbeddedCacheManagerDefaults defaults = this.configuration.getDefaults();
         GlobalConfiguration global = defaults.getGlobalConfiguration().clone();
+
+        // set up transport only if tranmsport is required by sme cache in the cache manager
         TransportConfiguration transport = this.configuration.getTransportConfiguration();
         FluentGlobalConfiguration.TransportConfig fluentTransport = global.fluent().transport();
-        if (transport != null) {
+
+        // check if we need a transport
+        AtomicBoolean transportRequired = this.configuration.getTransportRequired();
+
+        if ((transportRequired.get() == true) && transport != null) {
+            log.debug("initializing transport for cache manager") ;
             fluentTransport.transportClass(JGroupsTransport.class);
             Long timeout = transport.getLockTimeout();
             if (timeout != null) {
@@ -127,6 +138,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
             fluentTransport.transportClass(null);
         }
 
+        // set up executor lookups
         Executor listenerExecutor = this.configuration.getListenerExecutor();
         if (listenerExecutor != null) {
             ExecutorProvider.initListenerExecutor(global, listenerExecutor);
@@ -139,6 +151,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
         if (replicationQueueExecutor != null) {
             ExecutorProvider.initReplicationQueueExecutor(global, replicationQueueExecutor);
         }
+
 
         FluentGlobalConfiguration.GlobalJmxStatisticsConfig globalJmx = fluentTransport.globalJmxStatistics();
         globalJmx.cacheManagerName(this.configuration.getName());
@@ -154,6 +167,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
             globalJmx.disable();
         }
 
+        // set up transaction manager lookups
         FluentConfiguration.TransactionConfig tx = fluent.transaction();
         TransactionManager txManager = this.configuration.getTransactionManager();
         if (txManager != null) {
@@ -165,6 +179,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
             tx.transactionSynchronizationRegistryLookup(new TransactionSynchronizationRegistryProvider(txSyncRegistry));
         }
 
+        // create the cache manager
         EmbeddedCacheManager manager = new DefaultCacheManager(global, defaultConfig, false);
         manager.addListener(this);
         // Add named configurations
@@ -177,7 +192,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
         this.container = new DefaultEmbeddedCacheManager(manager, this.configuration.getDefaultCache());
         this.container.start();
 
-        System.out.println("cache manager started");
+        log.debug("cache manager started");
 
     }
 
@@ -189,7 +204,7 @@ public class EmbeddedCacheManagerService implements Service<CacheContainer> {
     public void stop(StopContext context) {
         this.container.stop();
         this.container = null;
-        System.out.println("cache manager stopped");
+        log.debug("cache manager stopped");
     }
 
     @CacheStarted

@@ -1076,7 +1076,7 @@ public class InfinispanSubsystemParser_1_1 implements XMLElementReader<List<Mode
     }
 
     private String flatten(String group, String key) {
-        return group + "." + key ;
+        return group + ModelKeys.SEPARATOR + key ;
     }
 
 }

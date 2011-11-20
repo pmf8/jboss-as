@@ -5,6 +5,7 @@ import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
 
 import java.util.Locale;
 
@@ -15,6 +16,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
  */
 public class CacheRemove extends AbstractRemoveStepHandler implements DescriptionProvider {
 
+    private static final Logger log = Logger.getLogger(CacheRemove.class.getPackage().getName());
     static final CacheRemove INSTANCE = new CacheRemove();
 
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) {
@@ -25,11 +27,11 @@ public class CacheRemove extends AbstractRemoveStepHandler implements Descriptio
         final String cacheName = cacheAddress.getLastElement().getValue() ;
         final String containerName = containerAddress.getLastElement().getValue() ;
 
+        // what about the cache configuration?
+
         // remove the CacheService instance
         context.removeService(EmbeddedCacheManagerService.getServiceName(containerName).append(cacheName));
-
-        System.out.println("cache " + cacheName + " removed for container " + containerName);
-
+        log.debug("cache " + cacheName + " removed for container " + containerName);
     }
 
     protected void recoverServices(OperationContext context, ModelNode operation, ModelNode model) {

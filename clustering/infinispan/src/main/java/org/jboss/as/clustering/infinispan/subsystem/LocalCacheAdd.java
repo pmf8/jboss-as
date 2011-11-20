@@ -10,6 +10,7 @@ import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
@@ -28,6 +29,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
  */
 public class LocalCacheAdd extends CacheAdd implements DescriptionProvider {
 
+    private static final Logger log = Logger.getLogger(LocalCacheAdd.class.getPackage().getName()) ;
     static final LocalCacheAdd INSTANCE = new LocalCacheAdd();
 
     @Override
@@ -76,10 +78,11 @@ public class LocalCacheAdd extends CacheAdd implements DescriptionProvider {
 
         // install the cache service
         ServiceTarget target = context.getServiceTarget() ;
+
         // create the CacheService name
         ServiceName serviceName = EmbeddedCacheManagerService.getServiceName(containerName).append(cacheName) ;
+
         // create the CacheService instance
-        // need to add in overrides
         ServiceBuilder<Cache<Object, Object>> builder = new CacheService<Object, Object>(cacheName, overrides).build(target, containerServiceName) ;
         builder.addDependency(bindInfo.getBinderServiceName()) ;
 
@@ -99,12 +102,7 @@ public class LocalCacheAdd extends CacheAdd implements DescriptionProvider {
         }
 
         newControllers.add(builder.install());
-
-        System.out.println("cache " + cacheName + " installed for container " + containerName);
-
-        // blend in the configuration data from Defaults
-        // register the cache definition
-        // start the cache service
+        log.debug("cache " + cacheName + " installed for container " + containerName);
     }
 
     public ModelNode getModelDescription(Locale locale) {

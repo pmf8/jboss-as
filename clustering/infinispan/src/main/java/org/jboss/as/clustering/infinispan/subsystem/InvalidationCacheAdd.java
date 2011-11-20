@@ -10,6 +10,7 @@ import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
@@ -26,6 +27,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
  */
 public class InvalidationCacheAdd extends ClusteredCacheAdd implements DescriptionProvider {
 
+    private static final Logger log = Logger.getLogger(InvalidationCacheAdd.class.getPackage().getName()) ;
     static final InvalidationCacheAdd INSTANCE = new InvalidationCacheAdd();
 
     @Override
@@ -97,7 +99,11 @@ public class InvalidationCacheAdd extends ClusteredCacheAdd implements Descripti
             builder.addListener(verificationHandler);
         }
 
+        // if we are clustered, update TransportRequiredService via its reference
+        setTransportRequired(context, containerServiceName);
+
         newControllers.add(builder.install());
+        log.debug("cache " + cacheName + " installed for container " + containerName);
     }
 
     public ModelNode getModelDescription(Locale locale) {

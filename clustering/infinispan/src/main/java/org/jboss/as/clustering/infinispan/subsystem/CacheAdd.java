@@ -108,14 +108,14 @@ public class CacheAdd extends AbstractAddStepHandler {
             model.get(ModelKeys.STORE).set(operation.get(ModelKeys.STORE));
             List<String> attributeList = Arrays.asList(ModelKeys.CLASS, ModelKeys.SHARED, ModelKeys.PRELOAD, ModelKeys.PASSIVATION, ModelKeys.FETCH_STATE, ModelKeys.PURGE, ModelKeys.SINGLETON);
             copyFlattenedElementsToModel(operation, model, ModelKeys.STORE, attributeList);
-            copyFlattenedStorePropertiesToModel(operation, model, ModelKeys.STORE+"."+ModelKeys.PROPERTIES);
+            copyFlattenedStorePropertiesToModel(operation, model, ModelKeys.STORE+ModelKeys.SEPARATOR+ModelKeys.PROPERTIES);
         }
         if (operation.hasDefined(ModelKeys.FILE_STORE)) {
             // indicate that a filestore child is defined
             model.get(ModelKeys.FILE_STORE).set(operation.get(ModelKeys.FILE_STORE));
             List<String> attributeList = Arrays.asList(ModelKeys.RELATIVE_TO, ModelKeys.PATH, ModelKeys.SHARED, ModelKeys.PRELOAD, ModelKeys.PASSIVATION, ModelKeys.FETCH_STATE, ModelKeys.PURGE, ModelKeys.SINGLETON);
             copyFlattenedElementsToModel(operation, model, ModelKeys.FILE_STORE, attributeList);
-            copyFlattenedStorePropertiesToModel(operation, model, ModelKeys.FILE_STORE+"."+ModelKeys.PROPERTIES);
+            copyFlattenedStorePropertiesToModel(operation, model, ModelKeys.FILE_STORE+ModelKeys.SEPARATOR+ModelKeys.PROPERTIES);
         }
     }
 
@@ -127,7 +127,7 @@ public class CacheAdd extends AbstractAddStepHandler {
     }
 
     protected static String flatten(String group, String key) {
-        return group+"."+key;
+        return group+ModelKeys.SEPARATOR+key;
     }
 
     // these properties come in the form {"\""name"\""="\""value"\"", ...}}

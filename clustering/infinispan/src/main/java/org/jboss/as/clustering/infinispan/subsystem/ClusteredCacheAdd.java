@@ -7,9 +7,14 @@ import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.ServiceVerificationHandler;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
 import org.jboss.msc.service.ServiceController;
+import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.ServiceNotFoundException;
+import org.jboss.msc.service.ServiceRegistry;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
@@ -19,6 +24,8 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
  * @author Richard Achmatowicz  (c) 2011 RedHat Inc.
  */
 public class ClusteredCacheAdd extends CacheAdd {
+
+    private static Logger log = Logger.getLogger(ClusteredCacheAdd.class.getPackage().getName());
 
     @Override
     protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
@@ -64,7 +71,7 @@ public class ClusteredCacheAdd extends CacheAdd {
             Mode syncMode  = Mode.valueOf(operation.get(ModelKeys.MODE).asString());
             model.get(ModelKeys.CACHE_MODE).set(syncMode.apply(cacheMode).name()) ;
         }
-        System.out.println("cache mode = " + model.get(ModelKeys.CACHE_MODE).asString());
+        log.debug("cache mode = " + model.get(ModelKeys.CACHE_MODE).asString());
 
         if (operation.hasDefined(ModelKeys.QUEUE_SIZE)) {
             model.get(ModelKeys.QUEUE_SIZE).set(operation.get(ModelKeys.QUEUE_SIZE)) ;
@@ -104,4 +111,29 @@ public class ClusteredCacheAdd extends CacheAdd {
 
         return configuration ;
     }
+
+    protected void setTransportRequired(OperationContext context, ServiceName container) {
+        ServiceName name = TransportRequiredService.getServiceName(container);
+        ServiceRegistry registry = context.getServiceRegistry(true);
+        ServiceController<AtomicBoolean> serviceController = null ;
+
+        /*
+        List<ServiceName> serviceNames = registry.getServiceNames() ;
+        System.out.println("Service Names:");
+        for (ServiceName serviceName : serviceNames) {
+            System.out.println(serviceName);
+        }
+        */
+
+        try {
+            serviceController = (ServiceController<AtomicBoolean>) registry.getRequiredService(name) ;
+        }
+        catch(ServiceNotFoundException e) {
+            log.debug("Service TransportRequired not installed for container " + container);
+        }
+
+        // set the value of the AtomicBoolean to value
+        ((AtomicBoolean) serviceController.getValue()).set(true) ;
+   }
+
 }

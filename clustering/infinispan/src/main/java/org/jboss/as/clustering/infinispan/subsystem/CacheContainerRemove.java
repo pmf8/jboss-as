@@ -21,8 +21,8 @@
  */
 
 package org.jboss.as.clustering.infinispan.subsystem;
-import java.util.Locale;
 
+import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
 import org.jboss.as.controller.AbstractRemoveStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.PathAddress;
@@ -30,11 +30,16 @@ import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
+
+import java.util.Locale;
 
 /**
  * @author Paul Ferraro
  */
 public class CacheContainerRemove extends AbstractRemoveStepHandler implements DescriptionProvider {
+
+    private static final Logger log = Logger.getLogger(CacheContainerRemove.class.getPackage().getName());
 
     @Override
     public ModelNode getModelDescription(Locale locale) {
@@ -45,15 +50,17 @@ public class CacheContainerRemove extends AbstractRemoveStepHandler implements D
         final PathAddress address = PathAddress.pathAddress(operation.get(ModelDescriptionConstants.OP_ADDR));
         final String name = address.getLastElement().getValue();
 
-        // remove the JNDI name
+        // remove the JNDI name we created
         String jndiName = CacheContainerAdd.getContainerJNDIName(operation, name) ;
         final ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
         context.removeService(bindInfo.getBinderServiceName());
 
+        // remove the ChannelService we created as a dependency
+        context.removeService(ChannelService.getServiceName(name));
+
         // now remove the service
         context.removeService(EmbeddedCacheManagerService.getServiceName(name));
-
-        System.out.println("cache container " + name + " removed");
+        log.debug("cache container " + name + " removed");
     }
 
     protected void recoverServices(OperationContext context, ModelNode operation, ModelNode model) {
