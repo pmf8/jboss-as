@@ -165,6 +165,7 @@ public class InfinispanDescriptions {
         ResourceBundle resources = getResources(locale);
         ModelNode description = createDescription(resources, "infinispan.local-cache");
         // need to add in any parameters!
+
         return description ;
     }
 
@@ -369,7 +370,14 @@ public class InfinispanDescriptions {
     }
     static ModelNode getReplicatedCacheDescription(Locale locale) {
         ResourceBundle resources = getResources(locale);
-        return createDescription(resources, "infinispan.replicated-cache");
+        ModelNode description = createDescription(resources, "infinispan.replicated-cache");
+
+        // information about its child "component=rpc-manager"
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.DESCRIPTION).set("A cache component");
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MIN_OCCURS).set(1);
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MAX_OCCURS).set(1);
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MODEL_DESCRIPTION);
+        return description ;
     }
 
     static ModelNode getReplicatedCacheAddDescription(Locale locale) {
@@ -401,7 +409,14 @@ public class InfinispanDescriptions {
     }
     static ModelNode getDistributedCacheDescription(Locale locale) {
         ResourceBundle resources = getResources(locale);
-        return createDescription(resources, "infinispan.distributed-cache");
+        ModelNode description = createDescription(resources, "infinispan.distributed-cache");
+
+        // information about its child "component=rpc-manager"
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.DESCRIPTION).set("A cache component");
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MIN_OCCURS).set(1);
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MAX_OCCURS).set(1);
+        description.get(ModelDescriptionConstants.CHILDREN, "component", ModelDescriptionConstants.MODEL_DESCRIPTION);
+        return description;
     }
 
     static ModelNode getDistributedCacheAddDescription(Locale locale) {
@@ -449,6 +464,19 @@ public class InfinispanDescriptions {
         return description;
     }
 
+    static ModelNode getRpcManagerComponentDescription(Locale locale) {
+        ResourceBundle resources = getResources(locale);
+        ModelNode desc = createDescription(resources, "infinispan.component.rpc-manager");
+        return desc;
+    }
+
+    static ModelNode getResetStatisticsDescription(Locale locale) {
+        ResourceBundle resources = getResources(locale);
+        ModelNode description = createRpcManagerComponentOperationDescription(RpcManagerHandler.RESET_STATISTICS, resources);
+        description.get(ModelDescriptionConstants.REQUEST_PROPERTIES).setEmptyObject();
+        return description;
+    }
+
 
     private static ResourceBundle getResources(Locale locale) {
         return ResourceBundle.getBundle(RESOURCE_NAME, (locale == null) ? Locale.getDefault() : locale);
@@ -489,5 +517,9 @@ public class InfinispanDescriptions {
 
     private static ModelNode createDistributedCacheOperationDescription(String operation, ResourceBundle resources) {
         return createOperationDescription(operation, resources, "infinispan.distributed-cache." + operation);
+    }
+
+    private static ModelNode createRpcManagerComponentOperationDescription(String operation, ResourceBundle resources) {
+        return createOperationDescription(operation, resources, "infinispan.component.rpc-manager." + operation);
     }
 }

@@ -1,17 +1,27 @@
 package org.jboss.as.clustering.infinispan.subsystem;
 
 import junit.framework.Assert;
+import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.PathElement;
 import org.jboss.as.subsystem.test.AbstractSubsystemTest;
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.dmr.ModelNode;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.NAME;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_ATTRIBUTE_OPERATION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
 
 /**
@@ -85,6 +95,36 @@ public class SubsystemParsingTestCase extends AbstractSubsystemTest {
         // make sure the models are identical
         super.compare(modelA, modelB);
     }
+
+    @Test
+    public void testExecuteOperations() throws Exception {
+
+        // Parse and install the XML into the controller
+        String subsystemXml = getSubsystemXml() ;
+        KernelServices servicesA = super.installInController(subsystemXml) ;
+
+        // list the names of the services which have been installed
+        System.out.println("service names = " + servicesA.getContainer().getServiceNames());
+
+        // test an operation
+        PathAddress rpcManagerAddr = PathAddress.pathAddress(
+                PathElement.pathElement(SUBSYSTEM, InfinispanExtension.SUBSYSTEM_NAME),
+                PathElement.pathElement("cache-container","maximal"),
+                PathElement.pathElement("distributed-cache", "dist"),
+                PathElement.pathElement("component", "rpc-manager"));
+
+        ModelNode readAttributeOp = new ModelNode() ;
+        readAttributeOp.get(OP).set(READ_ATTRIBUTE_OPERATION);
+        readAttributeOp.get(OP_ADDR).set(rpcManagerAddr.toModelNode());
+        readAttributeOp.get(NAME).set("replication-count");
+
+        ModelNode result = servicesA.executeOperation(readAttributeOp);
+        // Assert.assertEquals(SUCCESS, result.get(OUTCOME).asString());
+
+        System.out.println("result = " + result.toString());
+
+    }
+
 
 
     private String getSubsystemXml() throws IOException {

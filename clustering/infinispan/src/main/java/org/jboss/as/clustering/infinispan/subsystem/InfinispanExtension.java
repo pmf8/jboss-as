@@ -31,6 +31,7 @@ import javax.xml.stream.XMLStreamException;
 
 import org.infinispan.config.Configuration.CacheMode;
 import org.infinispan.eviction.EvictionStrategy;
+import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.as.controller.Extension;
@@ -39,6 +40,8 @@ import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SubsystemRegistration;
 import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.controller.descriptions.ResourceDescriptionResolver;
+import org.jboss.as.controller.descriptions.StandardResourceDescriptionResolver;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.parsing.ExtensionParsingContext;
 import org.jboss.as.controller.parsing.ParseUtils;
@@ -68,10 +71,14 @@ public class InfinispanExtension implements Extension, DescriptionProvider {
     private static final PathElement replicatedCachePath = PathElement.pathElement(ModelKeys.REPLICATED_CACHE);
     private static final PathElement distributedCachePath = PathElement.pathElement(ModelKeys.DISTRIBUTED_CACHE);
 
+    private static final PathElement rpcManagerComponentPath = PathElement.pathElement("component", "rpc-manager");
+
     private static final InfinispanSubsystemAdd add = new InfinispanSubsystemAdd();
     private static final InfinispanSubsystemDescribe describe = new InfinispanSubsystemDescribe();
     private static final CacheContainerAdd containerAdd = new CacheContainerAdd();
     private static final CacheContainerRemove containerRemove = new CacheContainerRemove();
+
+    public static final String RESOURCE_NAME = InfinispanDescriptions.class.getPackage().getName()+".LocalDescriptions";
 
     private static final DescriptionProvider containerDescription = new DescriptionProvider() {
         @Override
@@ -103,6 +110,20 @@ public class InfinispanExtension implements Extension, DescriptionProvider {
             return InfinispanDescriptions.getDistributedCacheDescription(locale);
         }
     };
+
+    private static final DescriptionProvider rpcManagerComponentDescription = new DescriptionProvider() {
+        @Override
+        public ModelNode getModelDescription(Locale locale) {
+            return InfinispanDescriptions.getRpcManagerComponentDescription(locale);
+        }
+    };
+
+    // DescriptionResolver for ResourceDescriptions
+    /*
+    static ResourceDescriptionResolver getResourceDescriptionResolver(final String keyPrefix) {
+        return new StandardResourceDescriptionResolver(keyPrefix, RESOURCE_NAME, InfinispanExtension.class.getClassLoader(), true, true);
+    }
+    */
 
     /**
      * {@inheritDoc}
@@ -137,12 +158,15 @@ public class InfinispanExtension implements Extension, DescriptionProvider {
         ManagementResourceRegistration repl = container.registerSubModel(replicatedCachePath, replicatedCacheDescription);
         repl.registerOperationHandler(ModelDescriptionConstants.ADD, ReplicatedCacheAdd.INSTANCE, ReplicatedCacheAdd.INSTANCE, false);
         repl.registerOperationHandler(ModelDescriptionConstants.REMOVE, CacheRemove.INSTANCE, CacheRemove.INSTANCE, false);
+        // add component resources
+        registerCacheComponents(repl) ;
 
         // add /subsystem=infinispan/cache-container=*/distributed-cache=*
         ManagementResourceRegistration dist = container.registerSubModel(distributedCachePath, distributedCacheDescription);
         dist.registerOperationHandler(ModelDescriptionConstants.ADD, DistributedCacheAdd.INSTANCE, DistributedCacheAdd.INSTANCE, false);
         dist.registerOperationHandler(ModelDescriptionConstants.REMOVE, CacheRemove.INSTANCE, CacheRemove.INSTANCE, false);
-
+        // add component resources
+        registerCacheComponents(dist) ;
     }
 
     /**
@@ -163,5 +187,13 @@ public class InfinispanExtension implements Extension, DescriptionProvider {
         return InfinispanDescriptions.getSubsystemDescription(locale);
     }
 
+    private void registerCacheComponents(ManagementResourceRegistration registry) {
+        // final ManagementResourceRegistration rpcManagerComponent = registry.registerSubModel(RpcManagerComponentResourceDefinition.INSTANCE);
+
+        // resources
+        ManagementResourceRegistration rpcManagerComponent = registry.registerSubModel(rpcManagerComponentPath, rpcManagerComponentDescription);
+        RpcManagerHandler.INSTANCE.registerAttributes(rpcManagerComponent);
+        RpcManagerHandler.INSTANCE.registerOperations(rpcManagerComponent);
+    }
 
 }
